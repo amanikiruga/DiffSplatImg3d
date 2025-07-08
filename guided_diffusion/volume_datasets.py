@@ -8,6 +8,9 @@ import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, Dataset
 
+# Import voxel gaussian dataset functionality
+from .voxel_gaussian_datasets import load_voxel_gaussian_data, VoxelGaussianDataset
+
 
 def load_volume_data(
     *,

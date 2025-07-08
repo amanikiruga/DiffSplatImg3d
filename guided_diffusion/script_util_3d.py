@@ -36,6 +36,51 @@ def model_and_diffusion_defaults_3d():
     return res
 
 
+def voxel_gaussian_model_and_diffusion_defaults():
+    """
+    Defaults specifically for voxel gaussian 3D U-Net model and diffusion process.
+    Configured for 56-channel gaussian parameter input.
+    """
+    # Start with base 3D defaults
+    res = model_and_diffusion_defaults_3d()
+    
+    # Update for voxel gaussian specific configuration
+    res.update(dict(
+        volume_size=32,  # Voxel grids are typically 32^3
+        in_channels=56,  # opacity(1) + scaling(3) + rotation(4) + features_dc(3) + features_rest(45)
+        out_channels=56,  # Same as input unless learn_sigma=True
+        learn_sigma=False,  # If True, out_channels will be 2*in_channels
+        diffusion_steps=1000,
+        noise_schedule="linear",
+        use_scale_shift_norm=True,
+        dropout=0.1,  # Slightly higher dropout for complex feature space
+        use_checkpoint=True,  # Use checkpointing for memory efficiency with 56 channels
+    ))
+    return res
+
+
+def calculate_voxel_gaussian_channels(include_features=("opacity", "scaling", "rotation", "features_dc", "features_rest")):
+    """
+    Calculate the number of channels needed for voxel gaussian features.
+    
+    :param include_features: tuple of feature names to include
+    :return: total number of channels
+    """
+    channels = 0
+    for feature in include_features:
+        if feature == "opacity":
+            channels += 1
+        elif feature == "scaling":
+            channels += 3
+        elif feature == "rotation":
+            channels += 4
+        elif feature == "features_dc":
+            channels += 3  # Base color (SH degree 0)
+        elif feature == "features_rest":
+            channels += 45  # SH degrees 1-3: 3 + 5 + 7 = 15 coefficients * 3 colors
+    return channels
+
+
 def create_model_3d(
     volume_size,
     in_channels,
@@ -135,10 +180,16 @@ def create_model_and_diffusion_3d(
     """
     Create both a 3D U-Net model and diffusion process.
     """
+    # If learning sigma, output channels should be double input channels
+    if learn_sigma and out_channels == in_channels:
+        actual_out_channels = 2 * in_channels
+    else:
+        actual_out_channels = out_channels
+    
     model = create_model_3d(
         volume_size=volume_size,
         in_channels=in_channels,
-        out_channels=out_channels,
+        out_channels=actual_out_channels,
         num_classes=num_classes,
         dropout=dropout,
         use_checkpoint=use_checkpoint,
@@ -158,6 +209,54 @@ def create_model_and_diffusion_3d(
         timestep_respacing=timestep_respacing,
     )
     return model, diffusion
+
+
+def create_voxel_gaussian_model_and_diffusion(
+    volume_size=32,
+    include_features=("opacity", "scaling", "rotation", "features_dc", "features_rest"),
+    num_classes=None,
+    dropout=0.1,
+    use_checkpoint=True,
+    use_fp16=False,
+    use_scale_shift_norm=True,
+    resblock_updown=False,
+    use_new_attention_order=False,
+    learn_sigma=False,
+    diffusion_steps=1000,
+    noise_schedule="linear",
+    timestep_respacing="",
+    use_kl=False,
+    predict_xstart=False,
+    rescale_timesteps=False,
+    rescale_learned_sigmas=False,
+):
+    """
+    Create both a 3D U-Net model and diffusion process specifically for voxel gaussian data.
+    Automatically calculates the correct number of channels based on included features.
+    """
+    in_channels = calculate_voxel_gaussian_channels(include_features)
+    out_channels = 2 * in_channels if learn_sigma else in_channels
+    
+    return create_model_and_diffusion_3d(
+        volume_size=volume_size,
+        in_channels=in_channels,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        dropout=dropout,
+        use_checkpoint=use_checkpoint,
+        use_fp16=use_fp16,
+        use_scale_shift_norm=use_scale_shift_norm,
+        resblock_updown=resblock_updown,
+        use_new_attention_order=use_new_attention_order,
+        learn_sigma=learn_sigma,
+        diffusion_steps=diffusion_steps,
+        noise_schedule=noise_schedule,
+        timestep_respacing=timestep_respacing,
+        use_kl=use_kl,
+        predict_xstart=predict_xstart,
+        rescale_timesteps=rescale_timesteps,
+        rescale_learned_sigmas=rescale_learned_sigmas,
+    )
 
 
 def add_dict_to_argparser(parser, default_dict):

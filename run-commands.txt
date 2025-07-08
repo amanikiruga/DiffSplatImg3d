@@ -1,0 +1,7 @@
+train on gaussian voxel grid
+
+python scripts/voxel_gaussian_train.py --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs/ --batch_size 2 --lr 1e-4 --save_interval 10000 --log_interval 1 --max_steps 5
+
+python scripts/voxel_gaussian_train_wandb.py --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs/ \
+--batch_size 2 --max_steps 15 --log_interval 5 --wandb_project "3d-diffusion-voxel-gaussian" \
+--wandb_run "memory-fixed-$(date +%H%M%S)" --test_generation_interval 10
