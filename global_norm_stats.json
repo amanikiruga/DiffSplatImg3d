@@ -1,0 +1,10 @@
+{
+  "opacity_min": 0.03887939453125,
+  "opacity_max": 1.0,
+  "scaling_log_min": -12.476649284362793,
+  "scaling_log_max": 7.771488666534424,
+  "features_dc_min": -3.822265625,
+  "features_dc_max": 14.03125,
+  "features_rest_min": -22.984375,
+  "features_rest_max": 23.34375
+}

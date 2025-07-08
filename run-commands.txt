@@ -1,7 +1,22 @@
-train on gaussian voxel grid
+# old train on gaussian voxel grid
 
 python scripts/voxel_gaussian_train.py --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs/ --batch_size 2 --lr 1e-4 --save_interval 10000 --log_interval 1 --max_steps 5
 
 python scripts/voxel_gaussian_train_wandb.py --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs/ \
 --batch_size 2 --max_steps 15 --log_interval 5 --wandb_project "3d-diffusion-voxel-gaussian" \
 --wandb_run "memory-fixed-$(date +%H%M%S)" --test_generation_interval 10
+
+
+# clean train on gaussian voxel grid with global min-max normalization
+
+## normalize the data 
+python scripts/compute_global_norm_stats.py --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs/ \
+--output_path ./global_norm_stats.json --include_features opacity scaling rotation features_dc features_rest
+
+## train the model 
+python scripts/voxel_gaussian_train_clean.py \
+    --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs \
+    --norm_stats_path ./global_norm_stats.json \
+    --batch_size 2 \
+    --save_interval 1000 \
+    --log_interval 100
