@@ -192,9 +192,7 @@ def gaussian_dict_to_volume(gaussians, include_features, grid_size):
     """
     n_voxels = gaussians["opacity"].shape[0]
     expected_voxels = grid_size ** 3
-    
-    if n_voxels != expected_voxels:
-        print(f"Warning: Expected {expected_voxels} voxels but got {n_voxels}")
+    assert n_voxels == expected_voxels, f"Expected {expected_voxels} voxels but got {n_voxels}"
     
     # Calculate total channels
     feature_channels = 0
@@ -213,44 +211,49 @@ def gaussian_dict_to_volume(gaussians, include_features, grid_size):
     # Collect features in order
     feature_list = []
     
-    for feature_name in include_features:
-        if feature_name == "opacity":
-            # [N, 1] -> keep as [N, 1]
-            opacity = gaussians["opacity"].float()
-            feature_list.append(opacity)
+    if "opacity" in include_features:
+        # [N, 1] -> keep as [N, 1]
+        opacity = gaussians["opacity"]
+        assert opacity.shape[1] == 1, f"Expected opacity shape [N, 1] but got {opacity.shape}"
+        feature_list.append(opacity)
             
-        elif feature_name == "scaling":
-            # [N, 3]
-            scaling = gaussians["scaling"].float()
-            feature_list.append(scaling)
+    if "scaling" in include_features:
+        # [N, 3]
+        scaling = gaussians["scaling"]
+        assert scaling.shape[1] == 3, f"Expected scaling shape [N, 3] but got {scaling.shape}"
+        feature_list.append(scaling)
             
-        elif feature_name == "rotation":
-            # [N, 4]
-            rotation = gaussians["rotation"].float()
-            feature_list.append(rotation)
+    if "rotation" in include_features:
+        # [N, 4]
+        rotation = gaussians["rotation"]
+        assert rotation.shape[1] == 4, f"Expected rotation shape [N, 4] but got {rotation.shape}"
+        feature_list.append(rotation)
             
-        elif feature_name == "features_dc":
-            # [N, 1, 3] -> [N, 3]
-            features_dc = gaussians["features_dc"].squeeze(1).float()
-            feature_list.append(features_dc)
+    if "features_dc" in include_features:
+        # [N, 1, 3] -> [N, 3]
+        features_dc = gaussians["features_dc"].squeeze(1)
+        assert features_dc.shape[1] == 3, f"Expected features_dc shape [N, 3] but got {features_dc.shape}"
+        feature_list.append(features_dc)
             
-        elif feature_name == "features_rest":
-            # [N, 15, 3] -> [N, 45]
-            features_rest = gaussians["features_rest"].float()
-            features_rest = features_rest.reshape(n_voxels, -1)
-            feature_list.append(features_rest)
-    
+    if "features_rest" in include_features:
+        # [N, 15, 3] -> [N, 45]
+        features_rest = gaussians["features_rest"]
+        features_rest = features_rest.reshape(n_voxels, -1)
+        assert features_rest.shape[1] == 45, f"Expected features_rest shape [N, 45] but got {features_rest.shape}"
+        feature_list.append(features_rest)
+
     # Concatenate all features: [N, total_channels]
     all_features = th.cat(feature_list, dim=1)
     
     # Reshape to volume: [total_channels, D, H, W]
     volume = all_features.transpose(0, 1)  # [total_channels, N]
+    print(f"shape after transpose and before volume reshape: {volume.shape}")
     volume = volume.reshape(feature_channels, grid_size, grid_size, grid_size)
     
     return volume
 
 
-def volume_to_gaussian_dict(volume, include_features, grid_size, voxel_centers, opacity_threshold=0.01):
+def volume_to_gaussian_dict(volume, include_features, grid_size, voxel_centers, opacity_threshold=0.00):
     """
     Convert volume tensor back to gaussian parameter dict for rendering.
     
@@ -268,75 +271,57 @@ def volume_to_gaussian_dict(volume, include_features, grid_size, voxel_centers, 
     
     # Extract opacity and create mask
     if "opacity" in include_features:
-        opacity_idx = include_features.index("opacity")
-        if opacity_idx == 0:
-            opacity_vol = volume[channel_idx]  # [D, H, W]
-            channel_idx += 1
-        else:
-            # Find opacity channel index
-            temp_idx = 0
-            for i, feat in enumerate(include_features):
-                if feat == "opacity":
-                    opacity_vol = volume[temp_idx]
-                    break
-                elif feat == "scaling":
-                    temp_idx += 3
-                elif feat == "rotation":
-                    temp_idx += 4
-                elif feat == "features_dc":
-                    temp_idx += 3
-                elif feat == "features_rest":
-                    temp_idx += 45
+        opacity_vol = volume[channel_idx]  # [D, H, W]
+        channel_idx += 1
     else:
-        # No opacity - use all voxels
-        opacity_vol = th.ones(grid_size, grid_size, grid_size, device=volume.device)
+        raise ValueError("Opacity not in include_features")
     
     # Apply sigmoid to opacity and create mask
-    opacity_sigmoid = th.sigmoid(opacity_vol)
-    opacity_flat = opacity_sigmoid.reshape(-1)
-    mask = opacity_flat > opacity_threshold
+    opacity_vol = opacity_vol.reshape(-1)
+    mask = opacity_vol > opacity_threshold
     
     if mask.sum() == 0:
-        print(f"Warning: No voxels above opacity threshold {opacity_threshold}")
-        mask[0] = True  # Keep at least one gaussian
+        raise ValueError(f"No voxels above opacity threshold {opacity_threshold}")
     
     # Get positions
+    print(f"old voxel_centers shape: {voxel_centers.shape}")
     pos = voxel_centers.reshape(-1, 3)[mask]  # [N_valid, 3]
+    print(f"new pos shape: {pos.shape}")
     
     # Build result dict
     result = {
         "xyz": pos,
-        "opacity": opacity_flat[mask, None],  # [N_valid, 1]
+        "opacity": opacity_vol[mask, None],  # [N_valid, 1]
     }
     
     # Extract other features
-    channel_idx = 0
-    for feature_name in include_features:
-        if feature_name == "opacity":
-            channel_idx += 1  # Already handled above
-            
-        elif feature_name == "scaling":
+    if "scaling" in include_features:
             # Extract log scales and convert to scales with exp
             scaling_vol = volume[channel_idx:channel_idx+3]  # [3, D, H, W]
             scaling_flat = scaling_vol.permute(1, 2, 3, 0).reshape(-1, 3)[mask]  # [N_valid, 3]
-            result["scaling"] = th.exp(scaling_flat)  # Convert from log scales to scales
+            
+            # Debug: Check for problematic values before exp
+            if th.any(th.isnan(scaling_flat)) or th.any(th.isinf(scaling_flat)):
+                raise ValueError(f"WARNING: NaN/Inf in log scaling values - replacing with safe defaults")
+            
+            result["scaling"] = scaling_flat
             channel_idx += 3
             
-        elif feature_name == "rotation":
+    if "rotation" in include_features:
             # Extract and normalize quaternions
             rotation_vol = volume[channel_idx:channel_idx+4]  # [4, D, H, W]
             rotation_flat = rotation_vol.permute(1, 2, 3, 0).reshape(-1, 4)[mask]  # [N_valid, 4]
-            result["rotation"] = F.normalize(rotation_flat, dim=-1)
+            result["rotation"] = rotation_flat
             channel_idx += 4
             
-        elif feature_name == "features_dc":
+    if "features_dc" in include_features:
             # Extract color features
             dc_vol = volume[channel_idx:channel_idx+3]  # [3, D, H, W]
             dc_flat = dc_vol.permute(1, 2, 3, 0).reshape(-1, 3)[mask]  # [N_valid, 3]
             result["features_dc"] = dc_flat[:, None, :]  # [N_valid, 1, 3]
             channel_idx += 3
             
-        elif feature_name == "features_rest":
+    if "features_rest" in include_features:
             # Extract SH features
             rest_vol = volume[channel_idx:channel_idx+45]  # [45, D, H, W]
             rest_flat = rest_vol.permute(1, 2, 3, 0).reshape(-1, 45)[mask]  # [N_valid, 45]

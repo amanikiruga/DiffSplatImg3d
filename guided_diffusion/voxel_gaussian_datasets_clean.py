@@ -12,7 +12,8 @@ from torch.utils.data import DataLoader, Dataset
 from .gaussian_norm_utils import (
     gaussian_dict_to_volume, 
     normalize_gaussian_volume,
-    load_normalization_stats
+    load_normalization_stats,
+    volume_to_gaussian_dict
 )
 
 
@@ -70,8 +71,18 @@ class CleanVoxelGaussianDataset(Dataset):
         # Load gaussian parameters
         gaussians = th.load(gaussians_path, map_location="cpu")
         
+        print("just loaded gaussians stats: ")
+        print(f"gaussians path: {gaussians_path}")
+        for key, value in gaussians.items():
+            if isinstance(value, th.Tensor):
+                print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
+        
+        voxel_centers = gaussians["xyz"]
         # Convert to volume format (no normalization yet)
         volume = gaussian_dict_to_volume(gaussians, self.include_features, self.grid_size)
+        
+        
+        return volume, {}
         
         # Apply random augmentations before normalization
         if self.random_flip and random.random() < 0.5:
@@ -79,15 +90,14 @@ class CleanVoxelGaussianDataset(Dataset):
             axis = random.choice([1, 2, 3])  # Don't flip channel axis
             volume = th.flip(volume, dims=[axis])
         
-        if self.random_rotate and random.random() < 0.3:
-            # Random 90-degree rotation in one plane
-            axes = random.choice([(1, 2), (1, 3), (2, 3)])
-            k = random.choice([1, 2, 3])
-            volume = self._rotate_volume_90(volume, k, axes)
+        # if self.random_rotate and random.random() < 0.3:
+        #     # Random 90-degree rotation in one plane
+        #     axes = random.choice([(1, 2), (1, 3), (2, 3)])
+        #     k = random.choice([1, 2, 3])
+        #     volume = self._rotate_volume_90(volume, k, axes)
         
         # Apply global min-max normalization
-        volume = normalize_gaussian_volume(volume, self.include_features, self.norm_stats)
-        
+        # volume = normalize_gaussian_volume(volume, self.include_features, self.norm_stats)
         # Ensure tensor doesn't require gradients
         volume = volume.detach()
         
@@ -137,6 +147,16 @@ def load_clean_voxel_gaussian_data(
     if not os.path.exists(norm_stats_path):
         raise ValueError(f"Normalization stats file not found: {norm_stats_path}")
     
+    # Import MPI for distributed data loading
+    try:
+        from mpi4py import MPI
+        current_rank = MPI.COMM_WORLD.Get_rank()
+        world_size = MPI.COMM_WORLD.Get_size()
+    except ImportError:
+        # Fallback for single GPU training
+        current_rank = 0
+        world_size = 1
+    
     # Find all object directories
     all_object_dirs = _list_voxel_gaussian_dirs_recursively(data_dir)
     
@@ -144,6 +164,7 @@ def load_clean_voxel_gaussian_data(
         raise ValueError(f"No gaussian data found in {data_dir}")
     
     print(f"Found {len(all_object_dirs)} objects in {data_dir}")
+    print(f"Distributed training: rank {current_rank}/{world_size}")
     
     # Create classes if class conditioning is enabled
     classes = None
@@ -152,14 +173,14 @@ def load_clean_voxel_gaussian_data(
         # This can be customized based on your dataset organization
         classes = [hash(obj_dir) % 1000 for obj_dir in all_object_dirs]
     
-    # Create dataset
+    # Create dataset with proper distributed sharding
     dataset = CleanVoxelGaussianDataset(
         grid_size=grid_size,
         object_dirs=all_object_dirs,
         norm_stats_path=norm_stats_path,
         classes=classes,
-        shard=0,  # Single shard for now
-        num_shards=1,
+        shard=current_rank,  # Distribute data across GPUs
+        num_shards=world_size,
         random_flip=random_flip,
         random_rotate=random_rotate,
         include_features=include_features,

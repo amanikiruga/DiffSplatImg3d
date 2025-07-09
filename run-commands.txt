@@ -14,7 +14,25 @@ python scripts/compute_global_norm_stats.py --data_dir /om/user/akiruga/splatter
 --output_path ./global_norm_stats.json --include_features opacity scaling rotation features_dc features_rest
 
 ## train the model 
-python scripts/voxel_gaussian_train_clean.py \
+WANDB_MODE=disabled python scripts/voxel_gaussian_train_clean.py \
+    --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs \
+    --norm_stats_path ./global_norm_stats.json \
+    --batch_size 2 \
+    --save_interval 1000 \
+    --log_interval 1000 \
+    --seed 0
+
+
+
+
+nohup python scripts/voxel_gaussian_train_clean.py \
+    --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs \
+    --norm_stats_path ./global_norm_stats.json \
+    --batch_size 2 \
+    --save_interval 1000 \
+    --log_interval 1000 > nohup_out/voxel_gaussian_train_clean.out 2>&1 &
+
+mpirun -np 4 python scripts/voxel_gaussian_train_clean.py \
     --data_dir /om/user/akiruga/splatter-image/checkpoints-voxel-optim-chairs \
     --norm_stats_path ./global_norm_stats.json \
     --batch_size 2 \

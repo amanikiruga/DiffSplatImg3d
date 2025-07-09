@@ -2,3 +2,5 @@
 __pycache__/
 classify_image_graph_def.pb
 wandb
+checkpoints-*
+nohup_out/

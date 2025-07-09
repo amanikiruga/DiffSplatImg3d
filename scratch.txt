@@ -94,8 +94,8 @@ class CleanGaussianVoxelGrid(th.nn.Module):
             norm_stats: Global normalization statistics
         """
         # Denormalize the volume
-        # denorm_volume = denormalize_gaussian_volume(volume.detach(), include_features, norm_stats)
-        denorm_volume = volume.detach()
+        denorm_volume = denormalize_gaussian_volume(volume.detach(), include_features, norm_stats)
+        
         # Convert to gaussian dict
         gauss_dict = volume_to_gaussian_dict(
             denorm_volume, include_features, self.grid_size, 
@@ -114,6 +114,10 @@ class CleanGaussianVoxelGrid(th.nn.Module):
         
         result = self.load_from_volume(volume, include_features, norm_stats)
         
+        print(f"Gaussian parameters created:")
+        for key, value in result.items():
+            if isinstance(value, th.Tensor):
+                print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}]")
         
         return result
 
@@ -168,9 +172,11 @@ def render_voxel_views(volume, include_features, norm_stats, dataset_obj, cfg, d
     # Create voxel grid and get gaussian parameters
     voxel_grid = CleanGaussianVoxelGrid(device=device)
     if not is_noise:
+        print("pupu go huhu")
         gauss = voxel_grid.get_gaussian_parameters_at_voxels(volume, include_features, norm_stats, opacity_threshold)
     else:
-        gauss = volume_to_gaussian_dict(volume, include_features, voxel_grid.grid_size, voxel_grid.voxel_centers, opacity_threshold=0)
+        print("papa go haha")
+        gauss = volume_to_gaussian_dict(volume, include_features, voxel_grid.grid_size, voxel_grid.voxel_centers, opacity_threshold=opacity_threshold)
     
     print(f"Gaussian parameters after denormalization:")
     for key, value in gauss.items():
@@ -188,7 +194,7 @@ def render_voxel_views(volume, include_features, norm_stats, dataset_obj, cfg, d
         for i, v in enumerate(view_indices):
             try:
                 if RENDERING_AVAILABLE and dataset_obj and 'world_view_transforms_absolute' in dataset_obj:
-                    # print(f"Rendering view {i}/{len(view_indices)} (index {v})...")
+                    print(f"Rendering view {i}/{len(view_indices)} (index {v})...")
                     out = render_predicted(
                         gauss,
                         dataset_obj['world_view_transforms_absolute'][v],
@@ -197,7 +203,7 @@ def render_voxel_views(volume, include_features, norm_stats, dataset_obj, cfg, d
                         background, render_config
                     )
                     img = out['render'].cpu().numpy().transpose(1, 2, 0)
-                    # print(f"Rendered image shape: {img.shape}, range: [{img.min():.3f}, {img.max():.3f}]")
+                    print(f"Rendered image shape: {img.shape}, range: [{img.min():.3f}, {img.max():.3f}]")
                     
                     # Check if image is all black
                     if img.max() == 0:
@@ -340,8 +346,6 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
         self.mp_trainer.zero_grad()
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch].to(dist_util.dev())
-            print(f"micro shape: {micro.shape}")
-            # print(f"micro first 5 values: {micro[0][0][0][0]}")
             micro_cond = {
                 k: v[i : i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
@@ -351,21 +355,15 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
             
             # Custom loss computation with alpha_bar^2 weighting
             def compute_losses():
-                if self.step % self.log_interval == 0:
-                    
-                    print("Log ground truth (clean training data)") 
-                    self.log_voxel_viz(micro[0], f"train/gt_data")
-                    exit("logged ground truth")
-                    
                 noise = th.randn_like(micro)
                 x_t = self.diffusion.q_sample(micro, t, noise=noise)
                 
                 # Log training visualizations only at log intervals
                 if self.step % self.log_interval == 0:
-                    
-                    print("Log noisy input (noisy training data)")
+                    # Log ground truth (clean training data) 
+                    self.log_voxel_viz(micro[0], f"train/gt_data")
+                    # Log noisy input 
                     self.log_voxel_viz(x_t[0], f"train/noisy_input")
-                    exit("logged noisy input")
                 
                 terms = {}
                 model_output = self.ddp_model(x_t, t, **micro_cond)
@@ -418,14 +416,15 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
             
             self.mp_trainer.backward(loss)
     
-    def log_voxel_viz(self, volume, prefix, is_noise=False):
+    def log_voxel_viz(self, volume, prefix):
         """Log visualization of a voxel volume."""
         # Only render on primary rank to avoid overwhelming the system
         if not self.is_primary_rank:
             return
             
         if self.norm_stats is None:
-            raise ValueError(f"Cannot render {prefix} - no normalization stats")
+            print(f"Warning: Cannot render {prefix} - no normalization stats")
+            return
             
         try:
             # Print debug info about the volume
@@ -438,7 +437,7 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
             # Render views
             frames = render_voxel_views(
                 volume, self.include_features, self.norm_stats, 
-                self.dataset_obj, self.render_config, dist_util.dev(), self.render_config, is_noise=is_noise
+                self.dataset_obj, self.render_config, dist_util.dev(), self.render_config
             )
             
             print(f"Rendered {len(frames)} frames")
@@ -483,7 +482,6 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
                 print(f"ERROR: No frames rendered for {prefix}")
                 
         except Exception as e:
-            raise e 
             print(f"Warning: Failed to log {prefix}: {e}")
             import traceback
             traceback.print_exc()
@@ -592,12 +590,6 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
 def main():
     args = create_argparser().parse_args()
 
-    if args.seed != -1:
-        th.manual_seed(args.seed)
-        th.cuda.manual_seed(args.seed)
-        th.cuda.manual_seed_all(args.seed)
-        np.random.seed(args.seed)
-
     # Setup distributed training first
     dist_util.setup_dist()
     logger.configure()
@@ -677,7 +669,7 @@ def main():
         batch_size=args.batch_size,
         grid_size=args.volume_size,
         class_cond=args.class_cond,
-        deterministic=True,
+        deterministic=False,
         random_flip=args.random_flip,
         random_rotate=args.random_rotate,
         include_features=args.include_features,
@@ -709,8 +701,8 @@ def main():
     
     def enhanced_run_loop():
         # Log test generation at start
-        # if args.log_test_generation:
-        #     train_loop.log_test_generation()
+        if args.log_test_generation:
+            train_loop.log_test_generation()
         
         # Override run_step to add periodic test generation and max_steps
         original_run_step = train_loop.run_step
@@ -795,13 +787,13 @@ def create_argparser():
     parser.add_argument(
         "--random_flip", 
         type=str2bool, 
-        default=False,
+        default=True,
         help="Apply random flipping for data augmentation"
     )
     parser.add_argument(
         "--random_rotate", 
         type=str2bool, 
-        default=False,
+        default=True,
         help="Apply random rotation for data augmentation"
     )
     parser.add_argument(
@@ -821,13 +813,6 @@ def create_argparser():
         type=int, 
         default=None,
         help="Maximum number of training steps (for testing)"
-    )
-    
-    parser.add_argument(
-        "--seed", 
-        type=int, 
-        default=-1,
-        help="Random seed for reproducibility. If -1, no seed is set."
     )
     
     return parser

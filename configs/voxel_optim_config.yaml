@@ -1,0 +1,72 @@
+# Configuration for voxel grid optimization
+data:
+  znear: 1.25
+  zfar: 2.75
+  fov: 51.98948897809546
+  category: shapenet_chairs_modified
+  white_background: true
+  origin_distances: false
+  overall_view: side-top
+  overall_view_two: null
+  input_images: 1
+  training_resolution: 256
+  subset: -1
+  val_size: null
+  
+model:
+  max_sh_degree: 1
+  network_with_offset: false
+  network_without_offset: true
+  inverted_x: false
+  inverted_y: false
+  isotropic: false
+  name: SingleUNet
+  opacity_bias: -2.0
+  opacity_scale: 0.001
+  scale_scale: 0.001
+  scale_bias: 0.02
+  xyz_scale: 0.000001
+  xyz_bias: 0.0
+  depth_scale: 1.0
+  depth_bias: 0.0
+  attention_resolutions:
+  - 16
+  num_blocks: 4
+  cross_view_attention: true
+  base_dim: 128
+
+opt:
+  loss: "l2"
+  # lambda_lpips: 0.01
+  lambda_lpips: 0.5
+  imgs_per_obj: 24
+
+general:
+  num_devices: 1
+  mixed_precision: false
+  device: 0
+  random_seed: 0
+  max_iterations: 30000
+  prefix: "checkpoints-voxel-optim"
+  split: 0
+  total_splits: 40
+  maxsamples: null
+  override_example_id: null
+  data_example_ids_path: null
+
+cam_embd:
+  embedding: null
+  encode_embedding: null
+  dimension: 32
+  method: "film"
+
+logging:
+  loss_log: 100
+  render_log: 500
+  loop_log: 1000
+  ckpt_iterations: 1000
+  val_log: 2000
+
+wandb:
+  project: "voxel_grid_optimization"
+  run_name: "test_run" 
