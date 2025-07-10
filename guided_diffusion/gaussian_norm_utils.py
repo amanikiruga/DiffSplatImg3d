@@ -55,54 +55,55 @@ def normalize_gaussian_volume(volume, include_features, norm_stats):
     volume = volume.clone()
     channel_idx = 0
     
-    for feature_name in include_features:
-        if feature_name == "opacity":
-            # opacity: min-max to [-1,1]
-            x_min = norm_stats[f"{feature_name}_min"]
-            x_max = norm_stats[f"{feature_name}_max"]
-            volume[channel_idx] = to_logit_minmax(volume[channel_idx], x_min, x_max)
-            channel_idx += 1
+    
+    if "opacity" in include_features:
+        # opacity: min-max to [-1,1]
+        x_min = norm_stats[f"opacity_min"]
+        x_max = norm_stats[f"opacity_max"]
+        volume[channel_idx] = to_logit_minmax(volume[channel_idx], x_min, x_max)
+        channel_idx += 1
             
-        elif feature_name == "scaling":
-            # scaling: log first, then min-max to [-1,1]
-            for i in range(3):
-                ch = volume[channel_idx + i]
-                # Apply log transform first
-                log_ch = th.log(th.clamp(ch, min=1e-8))
-                # Then normalize to [-1,1] using global log stats
-                x_min = norm_stats[f"{feature_name}_log_min"]
-                x_max = norm_stats[f"{feature_name}_log_max"]
-                volume[channel_idx + i] = to_logit_minmax(log_ch, x_min, x_max)
-            channel_idx += 3
+    if "scaling" in include_features:
+        # scaling: first going to log space, then min-max to [-1,1]
+        for i in range(3):
+            linear = volume[channel_idx + i]
+            log_ch = th.log(th.clamp(linear, min=1e-8))       # linear → log
+            volume[channel_idx + i] = to_logit_minmax(
+                log_ch,
+                norm_stats["scaling_log_min"],
+                norm_stats["scaling_log_max"],
+            )
+        channel_idx += 3
             
-        elif feature_name == "rotation":
-            # rotation: normalize to unit quaternions (no scaling to [-1,1])
-            quat_start = channel_idx
-            quat_end = channel_idx + 4
-            quat = volume[quat_start:quat_end]  # [4, D, H, W]
-            quat_flat = quat.reshape(4, -1)  # [4, D*H*W]
-            quat_norm = th.norm(quat_flat, dim=0, keepdim=True)
-            quat_flat = quat_flat / (quat_norm + 1e-6)
-            volume[quat_start:quat_end] = quat_flat.reshape_as(quat)
-            channel_idx += 4
-            
-        elif feature_name == "features_dc":
-            # features_dc: min-max to [-1,1]
-            for i in range(3):
-                ch = volume[channel_idx + i]
-                x_min = norm_stats[f"{feature_name}_min"]
-                x_max = norm_stats[f"{feature_name}_max"]
-                volume[channel_idx + i] = to_logit_minmax(ch, x_min, x_max)
-            channel_idx += 3
-            
-        elif feature_name == "features_rest":
-            # features_rest: global min-max to [-1,1]
-            x_min = norm_stats[f"{feature_name}_min"]
-            x_max = norm_stats[f"{feature_name}_max"]
-            for i in range(45):
-                ch = volume[channel_idx + i]
-                volume[channel_idx + i] = to_logit_minmax(ch, x_min, x_max)
-            channel_idx += 45
+    if "rotation" in include_features:
+        # no need to normalize rotation
+        channel_idx += 4
+        # rotation: normalize to unit quaternions (no scaling to [-1,1])
+        # quat_start = channel_idx
+        # quat_end = channel_idx + 4
+        # quat = volume[quat_start:quat_end]  # [4, D, H, W]
+        # quat_flat = quat.reshape(4, -1)  # [4, D*H*W]
+        # quat_norm = th.norm(quat_flat, dim=0, keepdim=True)
+        # quat_flat = quat_flat / (quat_norm + 1e-6)
+        # volume[quat_start:quat_end] = quat_flat.reshape_as(quat)
+        
+    if "features_dc" in include_features:
+        # features_dc: min-max to [-1,1]
+        for i in range(3):
+            ch = volume[channel_idx + i]
+            x_min = norm_stats[f"features_dc_min"]
+            x_max = norm_stats[f"features_dc_max"]
+            volume[channel_idx + i] = to_logit_minmax(ch, x_min, x_max)
+        channel_idx += 3
+        
+    if "features_rest" in include_features:
+        # features_rest: global min-max to [-1,1]
+        x_min = norm_stats[f"features_rest_min"]
+        x_max = norm_stats[f"features_rest_max"]
+        for i in range(45):
+            ch = volume[channel_idx + i]
+            volume[channel_idx + i] = to_logit_minmax(ch, x_min, x_max)
+        channel_idx += 45
     
     return volume
 
@@ -122,58 +123,49 @@ def denormalize_gaussian_volume(volume, include_features, norm_stats):
     volume = volume.clone()
     channel_idx = 0
     
-    for feature_name in include_features:
-        if feature_name == "opacity":
-            # opacity: from [-1,1] back to original range
-            x_min = norm_stats[f"{feature_name}_min"]
-            x_max = norm_stats[f"{feature_name}_max"]
-            volume[channel_idx] = from_logit_minmax(volume[channel_idx], x_min, x_max)
-            # Clamp to valid opacity range [0, 1]
-            volume[channel_idx] = th.clamp(volume[channel_idx], 0.0, 1.0)
-            channel_idx += 1
+    
+    if "opacity" in include_features:
+        # opacity: from [-1,1] back to original range
+        x_min = norm_stats[f"opacity_min"]
+        x_max = norm_stats[f"opacity_max"]
+        volume[channel_idx] = from_logit_minmax(volume[channel_idx], x_min, x_max)
+        # Clamp to valid opacity range [0, 1]
+        volume[channel_idx] = th.clamp(volume[channel_idx], 0.0, 1.0)
+        channel_idx += 1
             
-        elif feature_name == "scaling":
-            # scaling: from [-1,1] back to log space, then exp to get scales
-            for i in range(3):
-                ch = volume[channel_idx + i]
-                # Denormalize from [-1,1] to log space
-                x_min = norm_stats[f"{feature_name}_log_min"]
-                x_max = norm_stats[f"{feature_name}_log_max"]
-                log_ch = from_logit_minmax(ch, x_min, x_max)
-                # Convert from log space back to scale space (this gives log scales, NOT scales)
-                # The volume should contain log scales for rendering
-                volume[channel_idx + i] = log_ch
-                # Note: The rendering code will apply exp() to get actual scales
-            channel_idx += 3
+    if "scaling" in include_features:
+        # scaling: from [-1,1] back to log space, then exp to get scales
+        for i in range(3):
+            z = volume[channel_idx + i]
+            log_ch = from_logit_minmax(
+                z,
+                norm_stats["scaling_log_min"],
+                norm_stats["scaling_log_max"],
+            )
+            volume[channel_idx + i] = th.exp(log_ch)              # log → linear
+        channel_idx += 3
             
-        elif feature_name == "rotation":
-            # rotation: ensure unit quaternions (already normalized during forward pass)
-            quat_start = channel_idx
-            quat_end = channel_idx + 4
-            quat = volume[quat_start:quat_end]  # [4, D, H, W]
-            quat_flat = quat.reshape(4, -1)  # [4, D*H*W]
-            quat_norm = th.norm(quat_flat, dim=0, keepdim=True)
-            quat_flat = quat_flat / (quat_norm + 1e-6)
-            volume[quat_start:quat_end] = quat_flat.reshape_as(quat)
-            channel_idx += 4
+    if "rotation" in include_features:
+        # rotation: already normalized to unit quaternions prior to normalization here, so no need to denormalize
+        channel_idx += 4
             
-        elif feature_name == "features_dc":
-            # features_dc: from [-1,1] back to original range
-            for i in range(3):
-                ch = volume[channel_idx + i]
-                x_min = norm_stats[f"{feature_name}_min"]
-                x_max = norm_stats[f"{feature_name}_max"]
-                volume[channel_idx + i] = from_logit_minmax(ch, x_min, x_max)
-            channel_idx += 3
+    if "features_dc" in include_features:
+        # features_dc: from [-1,1] back to original range
+        for i in range(3):
+            ch = volume[channel_idx + i]
+            x_min = norm_stats[f"features_dc_min"]
+            x_max = norm_stats[f"features_dc_max"]
+            volume[channel_idx + i] = from_logit_minmax(ch, x_min, x_max)
+        channel_idx += 3
             
-        elif feature_name == "features_rest":
-            # features_rest: from [-1,1] back to original range
-            x_min = norm_stats[f"{feature_name}_min"]
-            x_max = norm_stats[f"{feature_name}_max"]
-            for i in range(45):
-                ch = volume[channel_idx + i]
-                volume[channel_idx + i] = from_logit_minmax(ch, x_min, x_max)
-            channel_idx += 45
+    if "features_rest" in include_features:
+        # features_rest: from [-1,1] back to original range
+        x_min = norm_stats[f"features_rest_min"]
+        x_max = norm_stats[f"features_rest_max"]
+        for i in range(45):
+            ch = volume[channel_idx + i]
+            volume[channel_idx + i] = from_logit_minmax(ch, x_min, x_max)
+        channel_idx += 45
     
     return volume
 

@@ -13,7 +13,8 @@ from .gaussian_norm_utils import (
     gaussian_dict_to_volume, 
     normalize_gaussian_volume,
     load_normalization_stats,
-    volume_to_gaussian_dict
+    volume_to_gaussian_dict,
+    denormalize_gaussian_volume
 )
 
 
@@ -81,6 +82,18 @@ class CleanVoxelGaussianDataset(Dataset):
         # Convert to volume format (no normalization yet)
         volume = gaussian_dict_to_volume(gaussians, self.include_features, self.grid_size)
         
+        volume = normalize_gaussian_volume(volume, self.include_features, self.norm_stats)
+        
+        
+        volume_denorm = denormalize_gaussian_volume(volume, self.include_features, self.norm_stats)
+        for_sanity_dict = volume_to_gaussian_dict(volume_denorm, self.include_features, self.grid_size, voxel_centers)
+        
+        print("for sanity, the gaussian dict:")
+        for key, value in for_sanity_dict.items():
+            if isinstance(value, th.Tensor):
+                print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
+        
+        exit("sanity check done")
         
         return volume, {}
         

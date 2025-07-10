@@ -59,32 +59,32 @@ def collect_all_features(data_dir, include_features):
             continue
             
         # Extract features according to include_features
-        for feature_name in include_features:
-            if feature_name == "opacity":
-                # [N, 1] -> flatten to [N]
-                opacity = gaussians["opacity"].float().flatten()
-                all_features[feature_name].append(opacity)
-                
-            elif feature_name == "scaling":
-                # [N, 3] -> keep as [N, 3] for per-channel stats
-                scaling = gaussians["scaling"].float()
-                all_features[feature_name].append(scaling)
-                
-            elif feature_name == "rotation":
-                # [N, 4] -> keep as [N, 4] (we don't normalize rotations)
-                rotation = gaussians["rotation"].float()
-                all_features[feature_name].append(rotation)
-                
-            elif feature_name == "features_dc":
-                # [N, 1, 3] -> [N, 3]
-                features_dc = gaussians["features_dc"].squeeze(1).float()
-                all_features[feature_name].append(features_dc)
-                
-            elif feature_name == "features_rest":
-                # [N, 15, 3] -> [N*15*3] (flatten for global stats)
-                features_rest = gaussians["features_rest"].float()
-                features_rest_flat = features_rest.flatten()
-                all_features[feature_name].append(features_rest_flat)
+        
+        if "opacity" in include_features:
+            # [N, 1] -> flatten to [N]
+            opacity = gaussians["opacity"].float().flatten()
+            all_features["opacity"].append(opacity)
+            
+        if "scaling" in include_features:
+            # [N, 3] -> keep as [N, 3] for per-channel stats
+            scaling = gaussians["scaling"].float()
+            all_features["scaling"].append(scaling)
+            
+        if "rotation" in include_features:
+            # [N, 4] -> keep as [N, 4] (we don't normalize rotations)
+            rotation = gaussians["rotation"].float()
+            all_features["rotation"].append(rotation)
+            
+        if "features_dc" in include_features:
+            # [N, 1, 3] -> [N, 3]
+            features_dc = gaussians["features_dc"].squeeze(1).float()
+            all_features["features_dc"].append(features_dc)
+            
+        if "features_rest" in include_features:
+            # [N, 15, 3] -> [N*15*3] (flatten for global stats)
+            features_rest = gaussians["features_rest"].float()
+            features_rest_flat = features_rest.flatten()
+            all_features["features_rest"].append(features_rest_flat)
     
     return all_features
 
@@ -104,8 +104,7 @@ def compute_global_min_max_stats(all_features):
     
     for feature_name, feature_tensors in all_features.items():
         if not feature_tensors:
-            print(f"Warning: No data found for feature {feature_name}")
-            continue
+            raise ValueError(f"No data found for feature {feature_name}")
             
         print(f"\nProcessing {feature_name}...")
         
@@ -120,17 +119,10 @@ def compute_global_min_max_stats(all_features):
             
         elif feature_name == "scaling":
             # Concatenate all scaling values and compute min/max after log transform
-            all_scaling = th.cat(feature_tensors, dim=0)  # [N_total, 3]
-            print(f"  Total scaling values: {all_scaling.shape}")
-            print(f"  Raw range: [{all_scaling.min().item():.6f}, {all_scaling.max().item():.6f}]")
-            
-            # Apply log transform first (user's approach)
-            log_scaling = th.log(th.clamp(all_scaling, min=1e-8))
-            print(f"  Log scaling range: [{log_scaling.min().item():.6f}, {log_scaling.max().item():.6f}]")
-            
-            # Global min/max across all channels
-            stats[f"{feature_name}_log_min"] = log_scaling.min().item()
-            stats[f"{feature_name}_log_max"] = log_scaling.max().item()
+            all_scaling = th.cat(feature_tensors, 0)        # [N_total, 3]
+            log_vals = th.log(th.clamp(all_scaling, 1e-8, None))
+            stats["scaling_log_min"] = log_vals.min().item()
+            stats["scaling_log_max"] = log_vals.max().item()
             
         elif feature_name == "rotation":
             # We don't normalize rotations (they get normalized to unit quaternions)
