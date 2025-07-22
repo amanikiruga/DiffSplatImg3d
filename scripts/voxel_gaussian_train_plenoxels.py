@@ -383,7 +383,21 @@ class PlenoxelDataset(th.utils.data.Dataset):
         # Convert to [C, D, H, W] format for 3D convolution
         normalized_grid = normalized_grid.permute(3, 0, 1, 2)
         
-        return normalized_grid
+        return normalized_grid, str(file_path)
+
+def custom_collate_fn(batch):
+    """Custom collate function to handle (data, file_path) tuples"""
+    data_tensors = []
+    file_paths = []
+    
+    for data, file_path in batch:
+        data_tensors.append(data)
+        file_paths.append(file_path)
+    
+    # Stack data tensors into a batch
+    batch_data = th.stack(data_tensors, dim=0)
+    
+    return batch_data, file_paths
 
 def load_plenoxel_data(data_dir, norm_stats_path, batch_size, grid_size=32, 
                       random_flip=False, random_rotate=False, 
@@ -401,7 +415,8 @@ def load_plenoxel_data(data_dir, norm_stats_path, batch_size, grid_size=32,
     
     if deterministic:
         loader = th.utils.data.DataLoader(
-            dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, drop_last=True
+            dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, 
+            drop_last=True, collate_fn=custom_collate_fn
         )
     else:
         # Use distributed sampler for multi-GPU training
@@ -414,18 +429,24 @@ def load_plenoxel_data(data_dir, norm_stats_path, batch_size, grid_size=32,
                 dataset, num_replicas=world_size, rank=rank, shuffle=True
             )
             loader = th.utils.data.DataLoader(
-                dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, drop_last=True
+                dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, 
+                drop_last=True, collate_fn=custom_collate_fn
             )
         except ImportError:
             # Fallback for single GPU
             loader = th.utils.data.DataLoader(
-                dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True
+                dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, 
+                drop_last=True, collate_fn=custom_collate_fn
             )
     
     # Create infinite iterator
     while True:
         for batch in loader:
-            yield batch, {}  # No conditioning for unconditional training
+            # batch is now (batch_data, file_paths) from custom_collate_fn
+            batch_data, file_paths = batch
+            
+            # Pass file paths in the conditioning dict
+            yield batch_data, {"file_paths": file_paths}
 
 
 # ==================== TRAINING LOOP ====================
@@ -469,13 +490,20 @@ class PlenoxelWandbTrainLoop(TrainLoop):
         self.mp_trainer.zero_grad()
         
         print(f"apparently step: {self.step}, Training step: {self.overall_step}, batch shape: {batch.shape} , microbatch: {self.microbatch}")
-        self.overall_step += 1
+        
         
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch].detach().to(dist_util.dev())
+            
+            # Handle file paths separately (they're strings, not tensors)
+            micro_file_paths = None
+            if "file_paths" in cond:
+                micro_file_paths = cond["file_paths"][i : i + self.microbatch]
+            
             micro_cond = {
                 k: v[i : i + self.microbatch].detach().to(dist_util.dev())
                 for k, v in cond.items()
+                if k != "file_paths"  # Skip file_paths since they're not tensors
             }
             last_batch = (i + self.microbatch) >= batch.shape[0]
             t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
@@ -488,7 +516,9 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 if self.overall_step % self.log_interval == 0 and self.is_primary_rank:
                     print("Logging training visualizations...")
                     with th.no_grad():
-                        self.log_plenoxel_viz(micro[0], "train/gt_data")
+                        # Pass the file path of the first sample for GT data logging
+                        source_file_path = micro_file_paths[0] if micro_file_paths else None
+                        self.log_plenoxel_viz(micro[0], "train/gt_data", source_file_path=source_file_path)
                         self.log_plenoxel_viz(x_t[0], "train/noisy_input", is_noise=True)
                 
                 terms = {}
@@ -540,8 +570,10 @@ class PlenoxelWandbTrainLoop(TrainLoop):
             logger.logkv_mean("train_mse", (losses["mse"] * weights).mean().item())
             
             self.mp_trainer.backward(loss)
+            
+        self.overall_step += 1
     
-    def log_plenoxel_viz(self, volume, prefix, is_noise=False):
+    def log_plenoxel_viz(self, volume, prefix, is_noise=False, source_file_path=None):
         """Log visualization of a plenoxel volume with rendering"""
         if not self.is_primary_rank:
             return
@@ -565,7 +597,8 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 denorm_volume = volume_dhwc
             
             # Render video frames using multiple camera views
-            num_views = min(12, len(RESAMPLE_CAMERAS))  # Use up to 12 views
+            # num_views = min(12, len(RESAMPLE_CAMERAS))  # Use up to 12 views
+            num_views = len(RESAMPLE_CAMERAS)
             frames = render_plenoxel_video(
                 denorm_volume, 
                 RESAMPLE_CAMERAS[:num_views], 
@@ -606,6 +639,12 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 imageio.mimwrite(video_path, frames, fps=5)
                 
                 print(f"Saved visualization to {debug_dir}")
+                
+                # Print specific path for GT data for manual rendering comparison
+                if "gt_data" in prefix.lower():
+                    print(f"📁 SOURCE DENSE_GRID.NPZ FILE: {source_file_path}")
+                    print(f"🎬 GT VIDEO PATH FOR MANUAL RENDERING: {video_path}")
+                    print(f"   You can manually render the .npz file to compare rendering quality")
                 
                 # Log to wandb
                 wandb.log({
