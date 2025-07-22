@@ -456,6 +456,8 @@ class PlenoxelWandbTrainLoop(TrainLoop):
         
         self.is_primary_rank = (self.rank == 0)
         
+        self.overall_step = 0
+        
         # Create test cameras for rendering
         # self.test_cameras = create_test_cameras(device=dist_util.dev())
         # print(f"Created {len(self.test_cameras)} test cameras")
@@ -466,7 +468,8 @@ class PlenoxelWandbTrainLoop(TrainLoop):
     def forward_backward(self, batch, cond):
         self.mp_trainer.zero_grad()
         
-        print(f"Training step: {self.step}, batch shape: {batch.shape}")
+        print(f"apparently step: {self.step}, Training step: {self.overall_step}, batch shape: {batch.shape} , microbatch: {self.microbatch}")
+        self.overall_step += 1
         
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch].detach().to(dist_util.dev())
@@ -482,7 +485,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 x_t = self.diffusion.q_sample(micro, t, noise=noise)
                 
                 # Log visualizations at log intervals
-                if self.step % self.log_interval == 0 and self.is_primary_rank:
+                if self.overall_step % self.log_interval == 0 and self.is_primary_rank:
                     print("Logging training visualizations...")
                     with th.no_grad():
                         self.log_plenoxel_viz(micro[0], "train/gt_data")
@@ -492,7 +495,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 model_output = self.ddp_model(x_t, t, **micro_cond)
                 
                 # Log denoised output
-                if self.step % self.log_interval == 0 and self.is_primary_rank:
+                if self.overall_step % self.log_interval == 0 and self.is_primary_rank:
                     with th.no_grad():
                         self.log_plenoxel_viz(model_output[0], "train/model_output")
                 
@@ -528,8 +531,8 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 wandb.log({
                     "train/loss": loss.item(),
                     "train/mse": (losses["mse"] * weights).mean().item(),
-                    "train/step": self.step,
-                    "train/samples": self.step * self.batch_size * self.world_size,
+                    "train/step": self.overall_step,
+                    "train/samples": self.overall_step * self.batch_size * self.world_size,
                 })
             
             # Log to logger
@@ -569,7 +572,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 fps=5, 
                 crop=1.0, 
                 save_video=True,
-                video_prefix=f"{prefix.replace('/', '_')}_step_{self.step}"
+                video_prefix=f"{prefix.replace('/', '_')}_step_{self.overall_step}"
             )
             
             if frames and len(frames) > 0:
@@ -581,7 +584,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 
                 # Save first few frames
                 for i, frame in enumerate(frames[:4]):
-                    frame_path = debug_dir / f"{prefix.replace('/', '_')}_frame_{i}_step_{self.step}.png"
+                    frame_path = debug_dir / f"{prefix.replace('/', '_')}_frame_{i}_step_{self.overall_step}.png"
                     imageio.imwrite(frame_path, frame)
                 
                 # Create multiview grid
@@ -596,10 +599,10 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 multiview_grid = np.concatenate(rows, axis=0)
                 
                 # Save grid and video
-                grid_path = debug_dir / f"{prefix.replace('/', '_')}_grid_step_{self.step}.png"
+                grid_path = debug_dir / f"{prefix.replace('/', '_')}_grid_step_{self.overall_step}.png"
                 imageio.imwrite(grid_path, multiview_grid)
                 
-                video_path = debug_dir / f"{prefix.replace('/', '_')}_video_step_{self.step}.mp4"
+                video_path = debug_dir / f"{prefix.replace('/', '_')}_video_step_{self.overall_step}.mp4"
                 imageio.mimwrite(video_path, frames, fps=5)
                 
                 print(f"Saved visualization to {debug_dir}")
@@ -613,6 +616,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 print(f"ERROR: No frames rendered for {prefix}")
                 
         except Exception as e:
+            raise e 
             print(f"ERROR: Failed to log {prefix}: {e}")
             import traceback
             traceback.print_exc()
@@ -653,7 +657,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
             # Log denoised result
             self.log_plenoxel_viz(denoised_sample[0], "test/denoised_generation")
             
-            wandb.log({"test/generation_step": self.step})
+            wandb.log({"test/generation_step": self.overall_step})
             
             print("=== TEST GENERATION COMPLETED ===")
             
@@ -777,7 +781,7 @@ def main():
         
         def enhanced_run_step(batch, cond):
             # Check max steps
-            if args.max_steps is not None and train_loop.step >= args.max_steps:
+            if args.max_steps is not None and train_loop.overall_step >= args.max_steps:
                 print(f"Reached max_steps ({args.max_steps}), stopping training")
                 return False
             
@@ -785,9 +789,9 @@ def main():
             
             # Test generation at intervals
             if (args.log_test_generation and 
-                train_loop.step > 0 and 
-                train_loop.step % args.test_generation_interval == 0):
-                print(f"Generating test samples at step {train_loop.step}")
+                # train_loop.overall_step > 0 and 
+                train_loop.overall_step % args.test_generation_interval == 0):
+                print(f"Generating test samples at step {train_loop.overall_step}")
                 train_loop.log_test_generation()
             
             return result
@@ -796,7 +800,7 @@ def main():
         
         # Run with max steps support
         if args.max_steps is not None:
-            while train_loop.step < args.max_steps:
+            while train_loop.overall_step < args.max_steps:
                 try:
                     batch, cond = next(train_loop.data)
                     if enhanced_run_step(batch, cond) == False:
