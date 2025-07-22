@@ -25,6 +25,7 @@ import imageio
 from datetime import datetime
 import wandb
 from pathlib import Path
+import tqdm
 
 # Add the root directory to the path so we can import from guided_diffusion
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -68,6 +69,8 @@ except ImportError as e:
     RENDERING_AVAILABLE = False
 
 
+GLOBAL_DATA_DIR = None
+
 class CleanGaussianVoxelGrid(th.nn.Module):
     """
     Clean voxel grid class for rendering using the new normalization approach.
@@ -77,12 +80,17 @@ class CleanGaussianVoxelGrid(th.nn.Module):
         self.grid_size = grid_size
         self.max_sh_degree = max_sh_degree
         
-        # Create fixed voxel centers
-        half_extent = 0.5
-        coords = th.linspace(-half_extent, half_extent, grid_size, device=device)
-        x, y, z = th.meshgrid(coords, coords, coords, indexing="ij")
-        voxel_centers = th.stack([x, y, z], dim=-1).reshape(grid_size, grid_size, grid_size, 3)
+        # load a sample object to get the voxel centers
+        assert GLOBAL_DATA_DIR is not None, "GLOBAL_DATA_DIR is not set"
+        sample_object_path = ""
+        for root, dirs, files in os.walk(GLOBAL_DATA_DIR):
+            if "gaussians.pt" in files and "gaussians.pt" not in sample_object_path:
+                sample_object_path = root
+                break 
+        sample_object = th.load(os.path.join(sample_object_path, "gaussians.pt"))
+        voxel_centers = sample_object["xyz"].float().to(device)
         self.register_buffer("voxel_centers", voxel_centers)
+        
 
     def load_from_volume(self, volume, include_features, norm_stats):
         """
@@ -94,8 +102,8 @@ class CleanGaussianVoxelGrid(th.nn.Module):
             norm_stats: Global normalization statistics
         """
         # Denormalize the volume
-        # denorm_volume = denormalize_gaussian_volume(volume.detach(), include_features, norm_stats)
-        denorm_volume = volume.detach()
+        denorm_volume = denormalize_gaussian_volume(volume.detach(), include_features, norm_stats)
+        # denorm_volume = volume.detach()
         # Convert to gaussian dict
         gauss_dict = volume_to_gaussian_dict(
             denorm_volume, include_features, self.grid_size, 
@@ -106,11 +114,11 @@ class CleanGaussianVoxelGrid(th.nn.Module):
 
     def get_gaussian_parameters_at_voxels(self, volume, include_features, norm_stats, opacity_threshold=0.01):
         """Convert normalized volume to gaussian parameters for rendering."""
-        print(f"=== GET_GAUSSIAN_PARAMETERS DEBUG ===")
-        print(f"Input volume shape: {volume.shape}")
-        print(f"Input volume range: [{volume.min().item():.3f}, {volume.max().item():.3f}]")
-        print(f"Include features: {include_features}")
-        print(f"Opacity threshold: {opacity_threshold}")
+        # print(f"=== GET_GAUSSIAN_PARAMETERS DEBUG ===")
+        # print(f"Input volume shape: {volume.shape}")
+        # print(f"Input volume range: [{volume.min().item():.3f}, {volume.max().item():.3f}]")
+        # print(f"Include features: {include_features}")
+        # print(f"Opacity threshold: {opacity_threshold}")
         
         result = self.load_from_volume(volume, include_features, norm_stats)
         
@@ -168,14 +176,16 @@ def render_voxel_views(volume, include_features, norm_stats, dataset_obj, cfg, d
     # Create voxel grid and get gaussian parameters
     voxel_grid = CleanGaussianVoxelGrid(device=device)
     if not is_noise:
+        print("not noise")
         gauss = voxel_grid.get_gaussian_parameters_at_voxels(volume, include_features, norm_stats, opacity_threshold)
     else:
+        print("yes noise")
         gauss = volume_to_gaussian_dict(volume, include_features, voxel_grid.grid_size, voxel_grid.voxel_centers, opacity_threshold=0)
     
     print(f"Gaussian parameters after denormalization:")
     for key, value in gauss.items():
         if isinstance(value, th.Tensor):
-            print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
+            print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}, dtype={value.dtype}")
 
     # Select views to render
     total_views = dataset_obj['gt_images'].shape[0]
@@ -338,12 +348,15 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
     
     def forward_backward(self, batch, cond):
         self.mp_trainer.zero_grad()
+        # print(f"batch shape: {batch.shape}")
+        # print(f"microbatch: {self.microbatch}")
+        print(f"current step: {self.step}")
         for i in range(0, batch.shape[0], self.microbatch):
-            micro = batch[i : i + self.microbatch].to(dist_util.dev())
-            print(f"micro shape: {micro.shape}")
+            micro = batch[i : i + self.microbatch].detach().to(dist_util.dev())
+            # print(f"micro shape: {micro.shape}")
             # print(f"micro first 5 values: {micro[0][0][0][0]}")
             micro_cond = {
-                k: v[i : i + self.microbatch].to(dist_util.dev())
+                k: v[i : i + self.microbatch].detach().to(dist_util.dev())
                 for k, v in cond.items()
             }
             last_batch = (i + self.microbatch) >= batch.shape[0]
@@ -351,28 +364,25 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
             
             # Custom loss computation with alpha_bar^2 weighting
             def compute_losses():
-                if self.step % self.log_interval == 0:
-                    
-                    print("Log ground truth (clean training data)") 
-                    self.log_voxel_viz(micro[0], f"train/gt_data")
-                    exit("logged ground truth")
                     
                 noise = th.randn_like(micro)
                 x_t = self.diffusion.q_sample(micro, t, noise=noise)
                 
                 # Log training visualizations only at log intervals
                 if self.step % self.log_interval == 0:
+                    with th.no_grad():
+                        print("Log ground truth (clean training data)") 
+                        self.log_voxel_viz(micro[0], f"train/gt_data")
+                        print("Log noisy input (noisy training data)")
+                        self.log_voxel_viz(x_t[0], f"train/noisy_input", is_noise=True)
                     
-                    print("Log noisy input (noisy training data)")
-                    self.log_voxel_viz(x_t[0], f"train/noisy_input")
-                    exit("logged noisy input")
-                
                 terms = {}
                 model_output = self.ddp_model(x_t, t, **micro_cond)
                 
                 # Log denoised output only at log intervals
                 if self.step % self.log_interval == 0:
-                    self.log_voxel_viz(model_output[0], f"train/model_output")
+                    with th.no_grad():
+                        self.log_voxel_viz(model_output[0], f"train/model_output")
                 
                 target = {
                     gd.ModelMeanType.PREVIOUS_X: self.diffusion.q_posterior_mean_variance(
@@ -421,6 +431,7 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
     def log_voxel_viz(self, volume, prefix, is_noise=False):
         """Log visualization of a voxel volume."""
         # Only render on primary rank to avoid overwhelming the system
+        volume = volume.detach().clone()
         if not self.is_primary_rank:
             return
             
@@ -447,7 +458,7 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
                 frame_mins = [f.min() for f in frames]
                 frame_maxs = [f.max() for f in frames]
                 frame_means = [f.mean() for f in frames]
-                print(f"Frame value ranges: min={min(frame_mins)}, max={max(frame_maxs)}, mean={sum(frame_means)/len(frame_means):.3f}")
+                print(f"Frame value ranges: min={min(frame_mins)}, max={max(frame_maxs)}, mean={sum(frame_means)/len(frame_means):.3f}, shape={frames[0].shape}")
                 
                 # Create multiview grid
                 multiview_grid = create_multiview_grid(frames)
@@ -477,7 +488,7 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
                 if self.is_primary_rank:
                     wandb.log({
                         f"{prefix}_multiview": wandb.Image(multiview_grid),
-                        f"{prefix}_video": wandb.Video(np.array(frames), fps=5, format="mp4")
+                        f"{prefix}_video": wandb.Video(np.array(frames).transpose(0, 3, 1, 2), fps=5, format="mp4")
                     })
             else:
                 print(f"ERROR: No frames rendered for {prefix}")
@@ -532,7 +543,7 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
                 if self.is_primary_rank:
                     wandb.log({
                         "test/noise_grid": wandb.Image(noise_grid),
-                        "test/noise_video": wandb.Video(np.array(noise_frames), fps=5, format="mp4")
+                        "test/noise_video": wandb.Video(np.array(noise_frames).transpose(0, 3, 1, 2), fps=5, format="mp4")
                     })
             else:
                 print("ERROR: No noise frames rendered!")
@@ -575,7 +586,7 @@ class CleanVoxelGaussianWandbTrainLoop(TrainLoop):
                 if self.is_primary_rank:
                     wandb.log({
                         "test/denoised_grid_generation": wandb.Image(denoised_grid),
-                        "test/denoised_video": wandb.Video(np.array(denoised_frames), fps=5, format="mp4"),
+                        "test/denoised_video": wandb.Video(np.array(denoised_frames).transpose(0, 3, 1, 2), fps=5, format="mp4"),
                         "test/generation_step": self.step
                     })
             else:
@@ -597,6 +608,8 @@ def main():
         th.cuda.manual_seed(args.seed)
         th.cuda.manual_seed_all(args.seed)
         np.random.seed(args.seed)
+        
+    th.autograd.set_detect_anomaly(True)  
 
     # Setup distributed training first
     dist_util.setup_dist()
@@ -671,13 +684,17 @@ def main():
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     logger.log("creating clean voxel gaussian data loader...")
+    
+    global GLOBAL_DATA_DIR
+    GLOBAL_DATA_DIR = args.data_dir
+    
     data = load_clean_voxel_gaussian_data(
         data_dir=args.data_dir,
         norm_stats_path=args.norm_stats_path,
         batch_size=args.batch_size,
         grid_size=args.volume_size,
         class_cond=args.class_cond,
-        deterministic=True,
+        deterministic=False,
         random_flip=args.random_flip,
         random_rotate=args.random_rotate,
         include_features=args.include_features,

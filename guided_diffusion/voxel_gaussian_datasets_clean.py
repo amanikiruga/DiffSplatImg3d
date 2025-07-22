@@ -46,15 +46,16 @@ class CleanVoxelGaussianDataset(Dataset):
         random_flip=True,
         random_rotate=True,
         include_features=("opacity", "scaling", "rotation", "features_dc", "features_rest"),
+        is_sanity_check=False,
     ):
         super().__init__()
         self.grid_size = grid_size
-        self.local_object_dirs = object_dirs[shard:][::num_shards]
+        self.local_object_dirs = object_dirs[shard:][::num_shards][:2]
         self.local_classes = None if classes is None else classes[shard:][::num_shards]
         self.random_flip = random_flip
         self.random_rotate = random_rotate
         self.include_features = include_features
-        
+        self.is_sanity_check = is_sanity_check
         # Load pre-computed global normalization statistics
         self.norm_stats = load_normalization_stats(norm_stats_path)
         
@@ -72,11 +73,11 @@ class CleanVoxelGaussianDataset(Dataset):
         # Load gaussian parameters
         gaussians = th.load(gaussians_path, map_location="cpu")
         
-        print("just loaded gaussians stats: ")
-        print(f"gaussians path: {gaussians_path}")
-        for key, value in gaussians.items():
-            if isinstance(value, th.Tensor):
-                print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
+        # print("just loaded gaussians stats: ")
+        # print(f"gaussians path: {gaussians_path}")
+        # for key, value in gaussians.items():
+        #     if isinstance(value, th.Tensor):
+        #         print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
         
         voxel_centers = gaussians["xyz"]
         # Convert to volume format (no normalization yet)
@@ -84,17 +85,16 @@ class CleanVoxelGaussianDataset(Dataset):
         
         volume = normalize_gaussian_volume(volume, self.include_features, self.norm_stats)
         
+        if self.is_sanity_check:
+            volume_denorm = denormalize_gaussian_volume(volume, self.include_features, self.norm_stats)
+            for_sanity_dict = volume_to_gaussian_dict(volume_denorm, self.include_features, self.grid_size, voxel_centers)
         
-        volume_denorm = denormalize_gaussian_volume(volume, self.include_features, self.norm_stats)
-        for_sanity_dict = volume_to_gaussian_dict(volume_denorm, self.include_features, self.grid_size, voxel_centers)
-        
-        print("for sanity, the gaussian dict:")
-        for key, value in for_sanity_dict.items():
-            if isinstance(value, th.Tensor):
-                print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
-        
-        exit("sanity check done")
-        
+            print("for sanity, the gaussian dict:")
+            for key, value in for_sanity_dict.items():
+                if isinstance(value, th.Tensor):
+                    print(f"  {key}: shape={value.shape}, range=[{value.min().item():.3f}, {value.max().item():.3f}], mean={value.mean().item():.3f}")
+            
+            exit("sanity check done")
         return volume, {}
         
         # Apply random augmentations before normalization
@@ -139,6 +139,7 @@ def load_clean_voxel_gaussian_data(
     random_flip=True,
     random_rotate=True,
     include_features=("opacity", "scaling", "rotation", "features_dc", "features_rest"),
+    is_sanity_check=False,
 ):
     """
     Load voxel gaussian data with clean min-max normalization.
@@ -197,6 +198,7 @@ def load_clean_voxel_gaussian_data(
         random_flip=random_flip,
         random_rotate=random_rotate,
         include_features=include_features,
+        is_sanity_check=is_sanity_check,
     )
     
     # Create data loader

@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/weka/scratch/weka/tenenbaum/akiruga/diffsplatimg3d/scripts/voxel_gaussian_train_clean.py", line 22, in <module>
+    import torch as th
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/__init__.py", line 1921, in <module>
+    from . import _meta_registrations
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/_meta_registrations.py", line 6253, in <module>
+    activate_meta()
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/_meta_registrations.py", line 6250, in activate_meta
+    _meta_lib_dont_use_me_use_register_meta.impl(op_overload, fn)
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/library.py", line 169, in impl
+    self.m.impl(name, dispatch_key if dispatch_key != "" else "CompositeImplicitAutograd", fn)
+KeyboardInterrupt

@@ -166,7 +166,7 @@ def denormalize_gaussian_volume(volume, include_features, norm_stats):
             ch = volume[channel_idx + i]
             volume[channel_idx + i] = from_logit_minmax(ch, x_min, x_max)
         channel_idx += 45
-    
+    volume = volume.to(th.float32)
     return volume
 
 
@@ -239,8 +239,8 @@ def gaussian_dict_to_volume(gaussians, include_features, grid_size):
     
     # Reshape to volume: [total_channels, D, H, W]
     volume = all_features.transpose(0, 1)  # [total_channels, N]
-    print(f"shape after transpose and before volume reshape: {volume.shape}")
-    volume = volume.reshape(feature_channels, grid_size, grid_size, grid_size)
+    # print(f"shape after transpose and before volume reshape: {volume.shape}")
+    volume = volume.reshape(feature_channels, grid_size, grid_size, grid_size).to(th.float32)
     
     return volume
 
@@ -276,9 +276,9 @@ def volume_to_gaussian_dict(volume, include_features, grid_size, voxel_centers, 
         raise ValueError(f"No voxels above opacity threshold {opacity_threshold}")
     
     # Get positions
-    print(f"old voxel_centers shape: {voxel_centers.shape}")
+    # print(f"old voxel_centers shape: {voxel_centers.shape}")
     pos = voxel_centers.reshape(-1, 3)[mask]  # [N_valid, 3]
-    print(f"new pos shape: {pos.shape}")
+    # print(f"new pos shape: {pos.shape}")
     
     # Build result dict
     result = {
