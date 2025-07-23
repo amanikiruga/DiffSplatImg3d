@@ -74,21 +74,22 @@ torchrun --nproc_per_node=4 scripts/voxel_gaussian_train_plenoxels.py \
     --test_generation_interval 200 \
     --save_interval 1000
 
-
-CUDA_VISIBLE_DEVICES=1 nohup python scripts/voxel_gaussian_train_plenoxels.py \
+### train on 4 gpus, use cosine noise schedule 
+CUDA_VISIBLE_DEVICES=4,5,6,7 torchrun --nproc_per_node=4 --master_port=29501 scripts/voxel_gaussian_train_plenoxels.py \
     --data_dir "/weka/scratch/weka/tenenbaum/akiruga/svox2/data/ckpts/shapenet_chairs_all_jupyter" \
     --norm_stats_path "norm_stats.pt" \
     --wandb_project "plenoxels-diffusion" \
-    --wandb_run "my-experiment" \
+    --wandb_run "cosine-noise-schedule" \
     --batch_size 52 \
     --lr 1e-4 \
-    --max_steps 100000 \
+    --max_steps 1000000 \
     --volume_size 32 \
     --use_checkpoint True \
     --use_scale_shift_norm True\
-    --log_interval 60 \
-    --test_generation_interval 60 > nohup_out/voxel_gaussian_train_plenoxels.out 2>&1 &
-
+    --log_interval 200 \
+    --test_generation_interval 200 \
+    --save_interval 1000 \
+    --noise_schedule "cosine"
 
 
 
