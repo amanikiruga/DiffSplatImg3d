@@ -421,9 +421,13 @@ def load_plenoxel_data(data_dir, norm_stats_path, batch_size, grid_size=32,
     else:
         # Use distributed sampler for multi-GPU training
         try:
-            from mpi4py import MPI
-            rank = MPI.COMM_WORLD.Get_rank()
-            world_size = MPI.COMM_WORLD.Get_size()
+            # from mpi4py import MPI
+            # rank = MPI.COMM_WORLD.Get_rank()
+            # world_size = MPI.COMM_WORLD.Get_size()
+            import torch.distributed as dist
+            rank = dist.get_rank()
+            world_size = dist.get_world_size()
+            
             
             sampler = th.utils.data.distributed.DistributedSampler(
                 dataset, num_replicas=world_size, rank=rank, shuffle=True
@@ -468,9 +472,12 @@ class PlenoxelWandbTrainLoop(TrainLoop):
         
         # Setup distributed info
         try:
-            from mpi4py import MPI
-            self.rank = MPI.COMM_WORLD.Get_rank()
-            self.world_size = MPI.COMM_WORLD.Get_size()
+            # from mpi4py import MPI
+            # self.rank = MPI.COMM_WORLD.Get_rank()
+            # self.world_size = MPI.COMM_WORLD.Get_size()
+            import torch.distributed as dist
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
         except ImportError:
             self.rank = 0
             self.world_size = 1
@@ -519,7 +526,11 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                         # Pass the file path of the first sample for GT data logging
                         source_file_path = micro_file_paths[0] if micro_file_paths else None
                         self.log_plenoxel_viz(micro[0], "train/gt_data", source_file_path=source_file_path)
-                        self.log_plenoxel_viz(x_t[0], "train/noisy_input", is_noise=True)
+                        
+                        # Log noisy input with timestep info
+                        timestep_val = t[0].item()  # Get timestep for first sample
+                        noisy_prefix = f"train/noisy_input_t{timestep_val}"
+                        self.log_plenoxel_viz(x_t[0], noisy_prefix, timestep=timestep_val)  # x_t is noisy data, not pure noise - should be denormalized
                 
                 terms = {}
                 model_output = self.ddp_model(x_t, t, **micro_cond)
@@ -573,7 +584,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
             
         self.overall_step += 1
     
-    def log_plenoxel_viz(self, volume, prefix, is_noise=False, source_file_path=None):
+    def log_plenoxel_viz(self, volume, prefix, is_noise=False, source_file_path=None, timestep=None):
         """Log visualization of a plenoxel volume with rendering"""
         if not self.is_primary_rank:
             return
@@ -582,6 +593,8 @@ class PlenoxelWandbTrainLoop(TrainLoop):
         
         try:
             print(f"=== LOGGING {prefix} ===")
+            if timestep is not None:
+                print(f"Timestep: {timestep} (higher = more noisy)")
             print(f"Volume shape: {volume.shape}")
             print(f"Volume range: [{volume.min().item():.3f}, {volume.max().item():.3f}]")
             
@@ -599,13 +612,18 @@ class PlenoxelWandbTrainLoop(TrainLoop):
             # Render video frames using multiple camera views
             # num_views = min(12, len(RESAMPLE_CAMERAS))  # Use up to 12 views
             num_views = len(RESAMPLE_CAMERAS)
+            # Include timestep in filename if provided
+            filename_base = f"{prefix.replace('/', '_')}_step_{self.overall_step}"
+            if timestep is not None:
+                filename_base += f"_t{timestep}"
+            
             frames = render_plenoxel_video(
                 denorm_volume, 
                 RESAMPLE_CAMERAS[:num_views], 
                 fps=5, 
                 crop=1.0, 
                 save_video=True,
-                video_prefix=f"{prefix.replace('/', '_')}_step_{self.overall_step}"
+                video_prefix=filename_base
             )
             
             if frames and len(frames) > 0:
@@ -617,7 +635,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 
                 # Save first few frames
                 for i, frame in enumerate(frames[:4]):
-                    frame_path = debug_dir / f"{prefix.replace('/', '_')}_frame_{i}_step_{self.overall_step}.png"
+                    frame_path = debug_dir / f"{filename_base}_frame_{i}.png"
                     imageio.imwrite(frame_path, frame)
                 
                 # Create multiview grid
@@ -632,10 +650,10 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                 multiview_grid = np.concatenate(rows, axis=0)
                 
                 # Save grid and video
-                grid_path = debug_dir / f"{prefix.replace('/', '_')}_grid_step_{self.overall_step}.png"
+                grid_path = debug_dir / f"{filename_base}_grid.png"
                 imageio.imwrite(grid_path, multiview_grid)
                 
-                video_path = debug_dir / f"{prefix.replace('/', '_')}_video_step_{self.overall_step}.mp4"
+                video_path = debug_dir / f"{filename_base}_video.mp4"
                 imageio.mimwrite(video_path, frames, fps=5)
                 
                 print(f"Saved visualization to {debug_dir}")
@@ -724,13 +742,22 @@ def main():
     logger.configure()
     
     # Get distributed info
-    try:
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-        world_size = MPI.COMM_WORLD.Get_size()
-    except ImportError:
-        rank = 0
-        world_size = 1
+    # try:
+    #     from mpi4py import MPI
+    #     rank = MPI.COMM_WORLD.Get_rank()
+    #     world_size = MPI.COMM_WORLD.Get_size()
+    # except ImportError:
+    #     rank = 0
+    #     world_size = 1
+    
+    import torch.distributed as dist
+
+    if dist.is_initialized():                 
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+    else: 
+        raise ValueError("Distributed training not initialized")
+    
     
     logger.log(f"Distributed training: rank {rank}/{world_size}")
     
@@ -844,6 +871,13 @@ def main():
                     batch, cond = next(train_loop.data)
                     if enhanced_run_step(batch, cond) == False:
                         break
+                      # ADD THE MISSING LOGIC:
+                    if train_loop.step % train_loop.log_interval == 0:
+                        logger.dumpkvs()
+                    if train_loop.step % train_loop.save_interval == 0:
+                        train_loop.save()
+                    
+                    train_loop.step += 1 
                 except StopIteration:
                     print("Data iterator exhausted")
                     break
@@ -866,7 +900,7 @@ def create_argparser():
         microbatch=-1,
         ema_rate="0.9999",
         log_interval=10,
-        save_interval=10000,
+        save_interval=1000,
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
