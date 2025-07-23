@@ -529,8 +529,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                         
                         # Log noisy input with timestep info
                         timestep_val = t[0].item()  # Get timestep for first sample
-                        noisy_prefix = f"train/noisy_input_t{timestep_val}"
-                        self.log_plenoxel_viz(x_t[0], noisy_prefix, timestep=timestep_val)  # x_t is noisy data, not pure noise - should be denormalized
+                        self.log_plenoxel_viz(x_t[0], "train/noisy_input", timestep=timestep_val)  # x_t is noisy data, not pure noise - should be denormalized
                 
                 terms = {}
                 model_output = self.ddp_model(x_t, t, **micro_cond)
@@ -665,10 +664,16 @@ class PlenoxelWandbTrainLoop(TrainLoop):
                     print(f"   You can manually render the .npz file to compare rendering quality")
                 
                 # Log to wandb
-                wandb.log({
+                log_dict = {
                     f"{prefix}_multiview": wandb.Image(multiview_grid),
                     f"{prefix}_video": wandb.Video(np.array(frames).transpose(0, 3, 1, 2), fps=5, format="mp4")
-                })
+                }
+                
+                # Add timestep as additional metadata if provided
+                if timestep is not None:
+                    log_dict[f"{prefix}_timestep"] = timestep
+                
+                wandb.log(log_dict)
             else:
                 print(f"ERROR: No frames rendered for {prefix}")
                 

@@ -1,0 +1,16 @@
+[Unit]
+Description=File Monitor and Copy Service
+After=network.target
+
+[Service]
+Type=simple
+User=akiruga
+WorkingDirectory=/om/user/akiruga/diffsplatimg3d
+ExecStart=/usr/bin/python3 /om/user/akiruga/diffsplatimg3d/file_monitor_copy.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 

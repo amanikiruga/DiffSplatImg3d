@@ -59,7 +59,7 @@ WANDB_MODE=disabled python scripts/voxel_gaussian_train_plenoxels.py \
     --log_interval 100 \
     --test_generation_interval 100 
 
-WANDB_MODE=disabled torchrun --nproc_per_node=4 scripts/voxel_gaussian_train_plenoxels.py \
+torchrun --nproc_per_node=4 scripts/voxel_gaussian_train_plenoxels.py \
     --data_dir "/weka/scratch/weka/tenenbaum/akiruga/svox2/data/ckpts/shapenet_chairs_all_jupyter" \
     --norm_stats_path "norm_stats.pt" \
     --wandb_project "plenoxels-diffusion" \
@@ -70,8 +70,9 @@ WANDB_MODE=disabled torchrun --nproc_per_node=4 scripts/voxel_gaussian_train_ple
     --volume_size 32 \
     --use_checkpoint True \
     --use_scale_shift_norm True\
-    --log_interval 100 \
-    --test_generation_interval 100 
+    --log_interval 200 \
+    --test_generation_interval 200 \
+    --save_interval 1000
 
 
 CUDA_VISIBLE_DEVICES=1 nohup python scripts/voxel_gaussian_train_plenoxels.py \
@@ -87,3 +88,26 @@ CUDA_VISIBLE_DEVICES=1 nohup python scripts/voxel_gaussian_train_plenoxels.py \
     --use_scale_shift_norm True\
     --log_interval 60 \
     --test_generation_interval 60 > nohup_out/voxel_gaussian_train_plenoxels.out 2>&1 &
+
+
+
+
+    # monitor checkpoints 
+
+    # Use default directories (original behavior)
+python3 file_monitor_copy.py
+
+# Custom source and destination
+python3 file_monitor_copy.py -s /tmp/my-source -d /path/to/destination
+
+# Custom source only
+python3 file_monitor_copy.py --source /tmp/my-source
+
+# Custom destination only  
+python3 file_monitor_copy.py --dest /path/to/destination
+
+# Custom interval (15 minutes instead of 30)
+python3 file_monitor_copy.py --interval 15
+
+# View all options
+python3 file_monitor_copy.py --help
