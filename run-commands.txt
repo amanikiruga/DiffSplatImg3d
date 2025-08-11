@@ -72,7 +72,8 @@ torchrun --nproc_per_node=4 scripts/voxel_gaussian_train_plenoxels.py \
     --use_scale_shift_norm True\
     --log_interval 200 \
     --test_generation_interval 200 \
-    --save_interval 1000
+    --save_interval 1000 \
+    --resume_checkpoint "/om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250722_222854/model_log/model010000.pt"
 
 ### train on 4 gpus, use cosine noise schedule 
 CUDA_VISIBLE_DEVICES=4,5,6,7 torchrun --nproc_per_node=4 --master_port=29501 scripts/voxel_gaussian_train_plenoxels.py \
@@ -89,17 +90,19 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 torchrun --nproc_per_node=4 --master_port=29501 scr
     --log_interval 200 \
     --test_generation_interval 200 \
     --save_interval 1000 \
-    --noise_schedule "cosine"
+    --noise_schedule "cosine" \
+    --resume_checkpoint "/om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250723_024110/model_log/model006000.pt"
 
 
 
     # monitor checkpoints 
 
     # Use default directories (original behavior)
+
 python3 file_monitor_copy.py
 
 # Custom source and destination
-python3 file_monitor_copy.py -s /tmp/my-source -d /path/to/destination
+python3 file_monitor_copy.py -s /tmp/openai-2025-07-23-02-41-15-164968 -d /om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250723_024110/model_log
 
 # Custom source only
 python3 file_monitor_copy.py --source /tmp/my-source
@@ -112,3 +115,74 @@ python3 file_monitor_copy.py --interval 15
 
 # View all options
 python3 file_monitor_copy.py --help
+
+
+# train on plenoxels data with minmax normalization
+
+torchrun --nproc_per_node=4 scripts/voxel_gaussian_train_plenoxels.py \
+    --data_dir "/weka/scratch/weka/tenenbaum/akiruga/svox2/data/ckpts/shapenet_chairs_all_jupyter" \
+    --norm_stats_path "minmax_norm_stats.pt" \
+    --wandb_project "plenoxels-diffusion" \
+    --wandb_run "minmax-norm-linear-schedule" \
+    --batch_size 52 \
+    --lr 1e-4 \
+    --max_steps 1000000 \
+    --volume_size 32 \
+    --use_checkpoint True \
+    --use_scale_shift_norm True\
+    --log_interval 200 \
+    --test_generation_interval 200 \
+    --save_interval 1000
+
+OPENAI_LOGDIR=/om/user/akiruga/diffsplatimg3d/checkpoint/bespoke-z-norm-linear-schedule nohup python scripts/voxel_gaussian_train_plenoxels.py \
+    --data_dir "/weka/scratch/weka/tenenbaum/akiruga/svox2/data/ckpts/shapenet_chairs_all_jupyter" \
+    --norm_stats_path "/om/user/akiruga/diffsplatimg3d/bespoke_norm_stats.pt" \
+    --wandb_project "plenoxels-diffusion" \
+    --wandb_run "bespoke-z-norm-linear-schedule" \
+    --batch_size 52 \
+    --lr 1e-4 \
+    --max_steps 1000000 \
+    --volume_size 32 \
+    --use_checkpoint True \
+    --use_scale_shift_norm True\
+    --log_interval 200 \
+    --test_generation_interval 200 \
+    --save_interval 1000 > nohup_out/voxel_gaussian_train_plenoxels_bespoke_z-norm_linear_schedule.out 2>&1 &
+
+
+# train on zscore normalized data with linear schedule
+OPENAI_LOGDIR=/om/user/akiruga/diffsplatimg3d/checkpoint/zscore-norm-linear-schedule nohup python scripts/voxel_gaussian_train_plenoxels.py \
+    --data_dir "/weka/scratch/weka/tenenbaum/akiruga/svox2/data/ckpts/shapenet_chairs_all_jupyter" \
+    --norm_stats_path "/om/user/akiruga/diffsplatimg3d/zscore_norm_stats.pt" \
+    --wandb_project "plenoxels-diffusion" \
+    --wandb_run "zscore-norm-linear-schedule" \
+    --batch_size 52 \
+    --lr 1e-4 \
+    --max_steps 1000000 \
+    --volume_size 32 \
+    --use_checkpoint True \
+    --use_scale_shift_norm True\
+    --log_interval 200 \
+    --test_generation_interval 200 \
+    --save_interval 1000 > nohup_out/voxel_gaussian_train_plenoxels_zscore_norm_linear_schedule.out 2>&1 &
+
+# train on zscore normalized data with cosine schedule
+CUDA_VISIBLE_DEVICES=4,5,6,7 OPENAI_LOGDIR=/om/user/akiruga/diffsplatimg3d/checkpoint/zscore-norm-cosine-schedule nohup python scripts/voxel_gaussian_train_plenoxels.py \
+    --data_dir "/weka/scratch/weka/tenenbaum/akiruga/svox2/data/ckpts/shapenet_chairs_all_jupyter" \
+    --norm_stats_path "/om/user/akiruga/diffsplatimg3d/zscore_norm_stats.pt" \
+    --wandb_project "plenoxels-diffusion" \
+    --wandb_run "zscore-norm-cosine-schedule" \
+    --batch_size 52 \
+    --lr 1e-4 \
+    --max_steps 1000000 \
+    --volume_size 32 \
+    --use_checkpoint True \
+    --use_scale_shift_norm True\
+    --noise_schedule "cosine" \
+    --log_interval 200 \
+    --test_generation_interval 200 \
+    --save_interval 1000 > nohup_out/voxel_gaussian_train_plenoxels_zscore_norm_cosine_schedule.out 2>&1 &
+
+
+    # resume from checkpoint 
+    --resume_checkpoint "/om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250722_222854/model_log/model010000.pt"

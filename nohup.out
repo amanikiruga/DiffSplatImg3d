@@ -10,3 +10,71 @@ Traceback (most recent call last):
   File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/library.py", line 169, in impl
     self.m.impl(name, dispatch_key if dispatch_key != "" else "CompositeImplicitAutograd", fn)
 KeyboardInterrupt
+LOAD NSVF DATA /om/user/akiruga/datasets/srn_chairs_alternate_views/feab80af7f3e459120523e15ec10a342/viz split train
+  0%|          | 0/187 [00:00<?, ?it/s] 50%|█████     | 94/187 [00:00<00:00, 934.78it/s]100%|██████████| 187/187 [00:00<00:00, 653.82it/s]
+/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/functional.py:512: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3587.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+NORMALIZE BY? manual
+scene_scale 1.0
+ intrinsics (loaded reso) Intrin(fx=131.25, fy=131.25, cx=64.0, cy=64.0)
+ Generating rays, scaling factor 1
+LOAD NSVF DATA /om/user/akiruga/datasets/srn_chairs_alternate_views/feab80af7f3e459120523e15ec10a342/viz split test
+  0%|          | 0/13 [00:00<?, ?it/s]100%|██████████| 13/13 [00:00<00:00, 956.06it/s]
+usage: voxel_gaussian_train_plenoxels.py [-h] [--volume_size VOLUME_SIZE]
+                                         [--in_channels IN_CHANNELS]
+                                         [--out_channels OUT_CHANNELS]
+                                         [--num_classes NUM_CLASSES]
+                                         [--dropout DROPOUT]
+                                         [--use_checkpoint USE_CHECKPOINT]
+                                         [--use_fp16 USE_FP16]
+                                         [--use_scale_shift_norm USE_SCALE_SHIFT_NORM]
+                                         [--resblock_updown RESBLOCK_UPDOWN]
+                                         [--use_new_attention_order USE_NEW_ATTENTION_ORDER]
+                                         [--learn_sigma LEARN_SIGMA]
+                                         [--diffusion_steps DIFFUSION_STEPS]
+                                         [--noise_schedule NOISE_SCHEDULE]
+                                         [--timestep_respacing TIMESTEP_RESPACING]
+                                         [--use_kl USE_KL]
+                                         [--predict_xstart PREDICT_XSTART]
+                                         [--rescale_timesteps RESCALE_TIMESTEPS]
+                                         [--rescale_learned_sigmas RESCALE_LEARNED_SIGMAS]
+                                         [--data_dir DATA_DIR]
+                                         [--schedule_sampler SCHEDULE_SAMPLER]
+                                         [--lr LR]
+                                         [--weight_decay WEIGHT_DECAY]
+                                         [--lr_anneal_steps LR_ANNEAL_STEPS]
+                                         [--batch_size BATCH_SIZE]
+                                         [--microbatch MICROBATCH]
+                                         [--ema_rate EMA_RATE]
+                                         [--log_interval LOG_INTERVAL]
+                                         [--save_interval SAVE_INTERVAL]
+                                         [--resume_checkpoint RESUME_CHECKPOINT]
+                                         [--fp16_scale_growth FP16_SCALE_GROWTH]
+                                         [--class_cond CLASS_COND]
+                                         [--wandb_project WANDB_PROJECT]
+                                         [--wandb_run WANDB_RUN]
+                                         [--log_test_generation LOG_TEST_GENERATION]
+                                         [--test_generation_interval TEST_GENERATION_INTERVAL]
+                                         [--random_flip RANDOM_FLIP]
+                                         [--random_rotate RANDOM_ROTATE]
+                                         [--num_workers NUM_WORKERS]
+                                         --norm_stats_path NORM_STATS_PATH
+                                         [--max_steps MAX_STEPS] [--seed SEED]
+voxel_gaussian_train_plenoxels.py: error: unrecognized arguments:  
+NORMALIZE BY? manual
+scene_scale 1.0
+ intrinsics (loaded reso) Intrin(fx=131.25, fy=131.25, cx=64.0, cy=64.0)
+  FOV: 51.98948897809546 degrees = 0.9073877590970678 radians
+  Image size: 128x128
+  Calculated focal length: 131.25
+  Principal point: (64.0, 64.0)
+Calculated optimal center: [-0.00228033  0.00017712  0.00033823]
+Calculated optimal radius: [0.44999999999999996, 0.44999999999999996, 0.44999999999999996]
+Custom center: [0.0, 0.0, 0.0]
+Original dataset center: [0.0, 0.0, 0.0]
+Original scene radius: [1.0, 1.0, 1.0]
+Scaled scene radius: [0.45, 0.45, 0.45] (scale factor: 0.45)
+Render options RenderOptions(backend='cuvol', background_brightness=1.0, step_size=0.5, sigma_thresh=1e-08, stop_thresh=1e-07, last_sample_opaque=False, near_clip=0.0, use_spheric_clip=False, random_sigma_std=0.0, random_sigma_std_background=0.0)
+Setting temporary gray density to visualize grid bounds...
+✔️  Saved preview video → /om/user/akiruga/svox2/data/ckpts/shapenet_chairs_jupyter/video_00000_bounds.mp4
+✅ Grid bounds video saved! Density reset to 0.1 for training

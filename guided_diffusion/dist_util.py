@@ -10,6 +10,7 @@ import blobfile as bf
 import torch as th
 import torch.distributed as dist
 
+
 try:
     from mpi4py import MPI  # optional, used only if torchrun env‑vars are absent
 except ImportError:
@@ -91,6 +92,8 @@ def load_state_dict(path: str, **torch_load_kwargs):
     • If MPI is active → broadcast bytes manually (avoids duplicate I/O).
     • Otherwise → fall back to torch.load on every rank (torchrun path).
     """
+    return th.load(path, **torch_load_kwargs)
+
     if MPI is None or not MPI.Is_initialized():
         return th.load(path, **torch_load_kwargs)
 

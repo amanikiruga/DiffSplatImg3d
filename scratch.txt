@@ -820,3 +820,95 @@ def create_argparser():
 
 if __name__ == "__main__":
     main() 
+
+
+    
+import torch, numpy as np
+from pathlib import Path
+
+CKPT_ROOT = "..."   # your root
+N_CH = 4
+DELTA = 1.0        # set to your voxel step length
+EPS = 1e-6
+PCT = 99.5         # robust high-percentile for scaling
+
+def _sample_abs_percentile(values, q, max_samples=2_000_000, rng=np.random.default_rng(0)):
+    # values: 1D numpy array; returns qth percentile of |values|
+    n = values.size
+    if n <= max_samples:
+        v = np.abs(values.ravel())
+    else:
+        idx = rng.integers(0, n, size=max_samples, endpoint=False)
+        v = np.abs(values.ravel()[idx])
+    s = np.percentile(v, q)
+    return max(float(s), EPS)
+
+def compute_norm_params(ckpt_root: str):
+    paths = sorted(Path(ckpt_root).rglob("dense_grid.npz"))
+    if not paths:
+        raise FileNotFoundError("No dense_grid.npz found.")
+
+    # For density: estimate scale in LOGIT-OPACITY space
+    dens_logits = []
+    # For SH: per-channel robust scales (linear+clip)
+    sh_scales_accum = [[] for _ in range(3)]  # channels 1,2,3
+
+    rng = np.random.default_rng(0)
+    for p in paths:
+        g = np.load(p)["dense_grid"]  # (X,Y,Z,4)
+        d = g[..., 0].astype(np.float64)
+        sigma = np.maximum(d, 0.0)                      # or: softplus(d)
+        alpha = 1.0 - np.exp(-sigma * DELTA)
+        ell = np.log(alpha + EPS) - np.log(1.0 - alpha + EPS)
+        dens_logits.append(ell)
+
+        for i in range(3):
+            sh_scales_accum[i].append(g[..., 1 + i].astype(np.float64))
+
+    # density scale = percentile of |logit(alpha)|
+    dens_logits_flat = np.concatenate([x.ravel() for x in dens_logits])
+    dens_scale = _sample_abs_percentile(dens_logits_flat, PCT, rng=rng)
+
+    # SH scales = per-channel abs-percentile
+    sh_scales = []
+    for i in range(3):
+        flat = np.concatenate([x.ravel() for x in sh_scales_accum[i]])
+        sh_scales.append(_sample_abs_percentile(flat, PCT, rng=rng))
+
+    params = {
+        "density": {"scale": float(dens_scale), "delta": float(DELTA), "eps": float(EPS)},
+        "sh_scale": torch.tensor(sh_scales, dtype=torch.float32),  # shape [3]
+    }
+    torch.save(params, "norm_params.pt")
+    return params
+
+def normalize(grid: torch.Tensor, params: dict) -> torch.Tensor:
+    g = grid.float()
+    # density → opacity logit → scaled & clipped to [-1,1]
+    d = g[..., 0]
+    sigma = torch.relu(d)                                 # or: F.softplus(d)
+    alpha = 1.0 - torch.exp(-sigma * params["density"]["delta"])
+    ell = torch.log(alpha + params["density"]["eps"]) - torch.log(1 - alpha + params["density"]["eps"])
+    dens_norm = torch.clamp(ell / params["density"]["scale"], -1.0, 1.0)
+
+    # SH: linear scale by robust percentile and clip
+    sh = g[..., 1:4]
+    sh_scale = params["sh_scale"].to(sh.device).view(*([1] * (sh.dim() - 1)), 3)
+    sh_norm = torch.clamp(sh / sh_scale, -1.0, 1.0)
+
+    return torch.cat([dens_norm.unsqueeze(-1), sh_norm], dim=-1)
+
+def denormalize(norm_grid: torch.Tensor, params: dict) -> torch.Tensor:
+    ng = norm_grid.float().clamp(-1, 1)
+    # density: invert scale → sigmoid → invert opacity to sigma
+    ell = ng[..., 0] * params["density"]["scale"]
+    alpha = torch.sigmoid(ell)
+    sigma = -torch.log(1.0 - alpha + params["density"]["eps"]) / params["density"]["delta"]
+    d_rec = sigma  # keep non-negative; if you need pre-activation, you can store sigma directly
+
+    # SH: invert linear scale
+    sh = ng[..., 1:4]
+    sh_scale = params["sh_scale"].to(sh.device).view(*([1] * (sh.dim() - 1)), 3)
+    sh_rec = sh * sh_scale
+
+    return torch.cat([d_rec.unsqueeze(-1), sh_rec], dim=-1)

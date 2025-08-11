@@ -62,3 +62,205 @@
 2025-07-23 02:25:54,322 - INFO - Starting copy cycle...
 2025-07-23 02:25:54,323 - INFO - No new files found
 2025-07-23 02:25:54,323 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 02:55:54,423 - INFO - Starting copy cycle...
+2025-07-23 02:55:54,424 - INFO - Found 5 new/modified files
+2025-07-23 02:55:54,425 - INFO - Copied: log.txt
+2025-07-23 02:55:54,426 - INFO - Copied: progress.csv
+2025-07-23 02:55:54,539 - INFO - Copied: model004000.pt
+2025-07-23 02:55:54,649 - INFO - Copied: ema_0.9999_004000.pt
+2025-07-23 02:55:54,884 - INFO - Copied: opt004000.pt
+2025-07-23 02:55:54,885 - INFO - Successfully copied 5 files
+2025-07-23 02:55:54,885 - INFO - Copy cycle completed
+2025-07-23 02:55:54,885 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 03:25:54,985 - INFO - Starting copy cycle...
+2025-07-23 03:25:54,985 - INFO - Found 2 new/modified files
+2025-07-23 03:25:54,987 - INFO - Copied: log.txt
+2025-07-23 03:25:54,988 - INFO - Copied: progress.csv
+2025-07-23 03:25:54,989 - INFO - Successfully copied 2 files
+2025-07-23 03:25:54,989 - INFO - Copy cycle completed
+2025-07-23 03:25:54,989 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 03:55:54,999 - INFO - Starting copy cycle...
+2025-07-23 03:55:55,000 - INFO - Found 2 new/modified files
+2025-07-23 03:55:55,001 - INFO - Copied: log.txt
+2025-07-23 03:55:55,002 - INFO - Copied: progress.csv
+2025-07-23 03:55:55,003 - INFO - Successfully copied 2 files
+2025-07-23 03:55:55,003 - INFO - Copy cycle completed
+2025-07-23 03:55:55,003 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 04:25:55,104 - INFO - Starting copy cycle...
+2025-07-23 04:25:55,104 - INFO - Found 5 new/modified files
+2025-07-23 04:25:55,106 - INFO - Copied: log.txt
+2025-07-23 04:25:55,107 - INFO - Copied: progress.csv
+2025-07-23 04:25:55,214 - INFO - Copied: model005000.pt
+2025-07-23 04:25:55,328 - INFO - Copied: ema_0.9999_005000.pt
+2025-07-23 04:25:55,535 - INFO - Copied: opt005000.pt
+2025-07-23 04:25:55,536 - INFO - Successfully copied 5 files
+2025-07-23 04:25:55,536 - INFO - Copy cycle completed
+2025-07-23 04:25:55,536 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 04:55:55,636 - INFO - Starting copy cycle...
+2025-07-23 04:55:55,637 - INFO - Found 2 new/modified files
+2025-07-23 04:55:55,638 - INFO - Copied: log.txt
+2025-07-23 04:55:55,640 - INFO - Copied: progress.csv
+2025-07-23 04:55:55,641 - INFO - Successfully copied 2 files
+2025-07-23 04:55:55,641 - INFO - Copy cycle completed
+2025-07-23 04:55:55,641 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 05:25:55,741 - INFO - Starting copy cycle...
+2025-07-23 05:25:55,742 - INFO - Found 5 new/modified files
+2025-07-23 05:25:55,743 - INFO - Copied: log.txt
+2025-07-23 05:25:55,745 - INFO - Copied: progress.csv
+2025-07-23 05:25:55,855 - INFO - Copied: model006000.pt
+2025-07-23 05:25:55,973 - INFO - Copied: ema_0.9999_006000.pt
+2025-07-23 05:25:56,187 - INFO - Copied: opt006000.pt
+2025-07-23 05:25:56,188 - INFO - Successfully copied 5 files
+2025-07-23 05:25:56,188 - INFO - Copy cycle completed
+2025-07-23 05:25:56,189 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 05:55:56,289 - INFO - Starting copy cycle...
+2025-07-23 05:55:56,290 - INFO - Found 2 new/modified files
+2025-07-23 05:55:56,292 - INFO - Copied: log.txt
+2025-07-23 05:55:56,293 - INFO - Copied: progress.csv
+2025-07-23 05:55:56,294 - INFO - Successfully copied 2 files
+2025-07-23 05:55:56,294 - INFO - Copy cycle completed
+2025-07-23 05:55:56,294 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 06:25:56,394 - INFO - Starting copy cycle...
+2025-07-23 06:25:56,395 - INFO - Found 5 new/modified files
+2025-07-23 06:25:57,435 - INFO - Copied: log.txt
+2025-07-23 06:25:57,437 - INFO - Copied: progress.csv
+2025-07-23 06:25:57,561 - INFO - Copied: model007000.pt
+2025-07-23 06:25:57,666 - INFO - Copied: ema_0.9999_007000.pt
+2025-07-23 06:25:57,883 - INFO - Copied: opt007000.pt
+2025-07-23 06:25:57,885 - INFO - Successfully copied 5 files
+2025-07-23 06:25:57,885 - INFO - Copy cycle completed
+2025-07-23 06:25:57,885 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 06:55:57,985 - INFO - Starting copy cycle...
+2025-07-23 06:55:57,986 - INFO - Found 2 new/modified files
+2025-07-23 06:55:57,988 - INFO - Copied: log.txt
+2025-07-23 06:55:57,989 - INFO - Copied: progress.csv
+2025-07-23 06:55:57,990 - INFO - Successfully copied 2 files
+2025-07-23 06:55:57,990 - INFO - Copy cycle completed
+2025-07-23 06:55:57,990 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 07:25:58,090 - INFO - Starting copy cycle...
+2025-07-23 07:25:58,091 - INFO - Found 5 new/modified files
+2025-07-23 07:25:58,093 - INFO - Copied: log.txt
+2025-07-23 07:25:58,094 - INFO - Copied: progress.csv
+2025-07-23 07:25:58,230 - INFO - Copied: model008000.pt
+2025-07-23 07:25:58,342 - INFO - Copied: ema_0.9999_008000.pt
+2025-07-23 07:25:58,571 - INFO - Copied: opt008000.pt
+2025-07-23 07:25:58,572 - INFO - Successfully copied 5 files
+2025-07-23 07:25:58,572 - INFO - Copy cycle completed
+2025-07-23 07:25:58,572 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 07:31:54,790 - INFO - Starting file monitor with:
+2025-07-23 07:31:54,790 - INFO -   Source: /tmp/openai-2025-07-23-02-41-15-164968
+2025-07-23 07:31:54,790 - INFO -   Destination: /om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250723_024110/model_log
+2025-07-23 07:31:54,790 - INFO -   Interval: 30 minutes
+2025-07-23 07:31:54,790 - INFO -   State file: file_monitor_state.json
+2025-07-23 07:31:54,790 - INFO -   Log file: file_monitor.log
+2025-07-23 07:31:54,791 - INFO - Destination directory: /om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250723_024110/model_log
+2025-07-23 07:31:54,791 - INFO - Source directory: /tmp/openai-2025-07-23-02-41-15-164968
+2025-07-23 07:31:54,791 - INFO - Starting copy cycle...
+2025-07-23 07:31:54,792 - INFO - Found 17 new/modified files
+2025-07-23 07:31:54,794 - INFO - Copied: log.txt
+2025-07-23 07:31:54,795 - INFO - Copied: progress.csv
+2025-07-23 07:31:54,919 - INFO - Copied: model000000.pt
+2025-07-23 07:31:55,029 - INFO - Copied: ema_0.9999_000000.pt
+2025-07-23 07:31:55,279 - INFO - Copied: opt000000.pt
+2025-07-23 07:31:55,396 - INFO - Copied: model001000.pt
+2025-07-23 07:31:55,503 - INFO - Copied: ema_0.9999_001000.pt
+2025-07-23 07:31:55,711 - INFO - Copied: opt001000.pt
+2025-07-23 07:31:55,834 - INFO - Copied: model002000.pt
+2025-07-23 07:31:55,955 - INFO - Copied: ema_0.9999_002000.pt
+2025-07-23 07:31:56,208 - INFO - Copied: opt002000.pt
+2025-07-23 07:31:56,324 - INFO - Copied: model003000.pt
+2025-07-23 07:31:56,441 - INFO - Copied: ema_0.9999_003000.pt
+2025-07-23 07:31:56,642 - INFO - Copied: opt003000.pt
+2025-07-23 07:31:56,757 - INFO - Copied: model004000.pt
+2025-07-23 07:31:56,858 - INFO - Copied: ema_0.9999_004000.pt
+2025-07-23 07:31:57,057 - INFO - Copied: opt004000.pt
+2025-07-23 07:31:57,058 - INFO - Successfully copied 17 files
+2025-07-23 07:31:57,058 - INFO - Copy cycle completed
+2025-07-23 07:31:57,058 - INFO - Starting file monitor (interval: 30 minutes)
+2025-07-23 07:31:57,058 - INFO - Source: /tmp/openai-2025-07-23-02-41-15-164968
+2025-07-23 07:31:57,058 - INFO - Destination: /om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250723_024110/model_log
+2025-07-23 07:31:57,058 - INFO - Starting copy cycle...
+2025-07-23 07:31:57,059 - INFO - No new files found
+2025-07-23 07:31:57,059 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 07:55:58,672 - INFO - Starting copy cycle...
+2025-07-23 07:55:58,673 - INFO - Found 2 new/modified files
+2025-07-23 07:55:58,675 - INFO - Copied: log.txt
+2025-07-23 07:55:58,676 - INFO - Copied: progress.csv
+2025-07-23 07:55:58,677 - INFO - Successfully copied 2 files
+2025-07-23 07:55:58,677 - INFO - Copy cycle completed
+2025-07-23 07:55:58,677 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 08:01:57,159 - INFO - Starting copy cycle...
+2025-07-23 08:01:57,160 - INFO - Found 2 new/modified files
+2025-07-23 08:01:57,161 - INFO - Copied: log.txt
+2025-07-23 08:01:57,163 - INFO - Copied: progress.csv
+2025-07-23 08:01:57,164 - INFO - Successfully copied 2 files
+2025-07-23 08:01:57,164 - INFO - Copy cycle completed
+2025-07-23 08:01:57,164 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 08:25:58,777 - INFO - Starting copy cycle...
+2025-07-23 08:25:58,778 - INFO - Found 5 new/modified files
+2025-07-23 08:25:58,780 - INFO - Copied: log.txt
+2025-07-23 08:25:58,781 - INFO - Copied: progress.csv
+2025-07-23 08:25:58,903 - INFO - Copied: model009000.pt
+2025-07-23 08:25:59,004 - INFO - Copied: ema_0.9999_009000.pt
+2025-07-23 08:25:59,211 - INFO - Copied: opt009000.pt
+2025-07-23 08:25:59,212 - INFO - Successfully copied 5 files
+2025-07-23 08:25:59,212 - INFO - Copy cycle completed
+2025-07-23 08:25:59,213 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 08:31:57,264 - INFO - Starting copy cycle...
+2025-07-23 08:31:57,265 - INFO - Found 5 new/modified files
+2025-07-23 08:31:57,266 - INFO - Copied: log.txt
+2025-07-23 08:31:57,268 - INFO - Copied: progress.csv
+2025-07-23 08:31:57,374 - INFO - Copied: model005000.pt
+2025-07-23 08:31:57,474 - INFO - Copied: ema_0.9999_005000.pt
+2025-07-23 08:31:57,671 - INFO - Copied: opt005000.pt
+2025-07-23 08:31:57,672 - INFO - Successfully copied 5 files
+2025-07-23 08:31:57,672 - INFO - Copy cycle completed
+2025-07-23 08:31:57,672 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 08:55:59,313 - INFO - Starting copy cycle...
+2025-07-23 08:55:59,313 - INFO - Found 2 new/modified files
+2025-07-23 08:55:59,315 - INFO - Copied: log.txt
+2025-07-23 08:55:59,316 - INFO - Copied: progress.csv
+2025-07-23 08:55:59,317 - INFO - Successfully copied 2 files
+2025-07-23 08:55:59,317 - INFO - Copy cycle completed
+2025-07-23 08:55:59,317 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 09:01:57,689 - INFO - Starting copy cycle...
+2025-07-23 09:01:57,690 - INFO - Found 2 new/modified files
+2025-07-23 09:01:57,691 - INFO - Copied: log.txt
+2025-07-23 09:01:57,693 - INFO - Copied: progress.csv
+2025-07-23 09:01:57,694 - INFO - Successfully copied 2 files
+2025-07-23 09:01:57,694 - INFO - Copy cycle completed
+2025-07-23 09:01:57,694 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 09:25:59,417 - INFO - Starting copy cycle...
+2025-07-23 09:25:59,418 - INFO - Found 2 new/modified files
+2025-07-23 09:25:59,420 - INFO - Copied: log.txt
+2025-07-23 09:25:59,421 - INFO - Copied: progress.csv
+2025-07-23 09:25:59,422 - INFO - Successfully copied 2 files
+2025-07-23 09:25:59,422 - INFO - Copy cycle completed
+2025-07-23 09:25:59,422 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 09:31:57,793 - INFO - Starting copy cycle...
+2025-07-23 09:31:57,794 - INFO - Found 5 new/modified files
+2025-07-23 09:31:57,801 - INFO - Copied: log.txt
+2025-07-23 09:31:57,803 - INFO - Copied: progress.csv
+2025-07-23 09:31:57,915 - INFO - Copied: model006000.pt
+2025-07-23 09:31:58,037 - INFO - Copied: ema_0.9999_006000.pt
+2025-07-23 09:31:58,242 - INFO - Copied: opt006000.pt
+2025-07-23 09:31:58,243 - INFO - Successfully copied 5 files
+2025-07-23 09:31:58,243 - INFO - Copy cycle completed
+2025-07-23 09:31:58,243 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 09:55:59,522 - INFO - Starting copy cycle...
+2025-07-23 09:55:59,523 - INFO - Found 5 new/modified files
+2025-07-23 09:55:59,525 - INFO - Copied: log.txt
+2025-07-23 09:55:59,526 - INFO - Copied: progress.csv
+2025-07-23 09:55:59,644 - INFO - Copied: model010000.pt
+2025-07-23 09:55:59,759 - INFO - Copied: ema_0.9999_010000.pt
+2025-07-23 09:55:59,979 - INFO - Copied: opt010000.pt
+2025-07-23 09:55:59,981 - INFO - Successfully copied 5 files
+2025-07-23 09:55:59,981 - INFO - Copy cycle completed
+2025-07-23 09:55:59,981 - INFO - Waiting 30 minutes until next cycle...
+2025-07-23 10:01:58,290 - INFO - Starting copy cycle...
+2025-07-23 10:01:58,291 - INFO - Found 2 new/modified files
+2025-07-23 10:01:58,294 - INFO - Copied: log.txt
+2025-07-23 10:01:58,295 - INFO - Copied: progress.csv
+2025-07-23 10:01:58,296 - INFO - Successfully copied 2 files
+2025-07-23 10:01:58,296 - INFO - Copy cycle completed
+2025-07-23 10:01:58,296 - INFO - Waiting 30 minutes until next cycle...

@@ -3,11 +3,11 @@
 Plenoxels 3D diffusion training with dense_grid.npz files.
 
 This script trains a 3D diffusion model on 32x32x32 plenoxels data
-extracted from the svox2 optimization pipeline, using z-score normalization.
+extracted from the svox2 optimization pipeline, using min-max normalization.
 
 Key features:
 - Loads dense_grid.npz files with 4 channels (1 density + 3 SH)
-- Uses z-score normalization (standardization) per channel
+- Uses min-max normalization to [-1, 1] per channel
 - Supports multi-GPU training
 - Extensive logging with rendering of training/test samples
 - Unconditional generation from noise
@@ -89,60 +89,56 @@ REFERENCE_GRID, RESAMPLE_CAMERAS = get_reference_grid()
 assert REFERENCE_GRID is not None, "Reference grid not found"
 
 # ==================== NORMALIZATION UTILITIES ====================
-# Z-score standardization per channel (dataset-wide)
+# Min-max normalization to [-1, 1] per channel
 
 EPS = 1e-12
-N_CH = 4  # 1 density + 3 SH channels
+N_CH = 4  # Changed from 28 to 4 channels
 
-def load_zscore_stats(stats_path):
-    """Load z-score normalization statistics"""
+def load_norm_stats(stats_path):
+    """Load min-max normalization statistics"""
     if not os.path.exists(stats_path):
-        raise FileNotFoundError(f"Z-score stats not found: {stats_path}")
+        raise FileNotFoundError(f"Normalization stats not found: {stats_path}")
     
     stats = th.load(stats_path)
-    return stats  # Returns dict with 'mean' and 'std' keys
+    return stats["min"], stats["max"]
 
-def zscore_normalize(grid_tensor, stats):
+def minmax_normalize(grid_tensor, min_vals, max_vals):
     """
-    Normalize a plenoxel grid using z-score standardization
+    Normalize a plenoxel grid using min-max normalization to [-1, 1]
     
     Args:
         grid_tensor: [D, H, W, C] tensor with 4 channels
-        stats: dict with 'mean' and 'std' tensors
+        min_vals, max_vals: normalization parameters
     
     Returns:
-        normalized tensor with zero mean and unit variance per channel
+        normalized tensor in [-1, 1] range
     """
-    # print("using z-score normalization")
-    mean = stats["mean"].to(grid_tensor.device)
-    std = stats["std"].to(grid_tensor.device)
+    min_vals = min_vals.to(grid_tensor.device)
+    max_vals = max_vals.to(grid_tensor.device)
     
     g = grid_tensor.view(-1, N_CH).clone()
-    # For density channel, add offset to counteract training code offset
-    # g[:, 0] += 25
-    g = (g - mean) / (std + EPS)
+    scale = (max_vals - min_vals).clamp_min(EPS)
+    g = 2.0 * (g - min_vals) / scale - 1.0
     
     return g.view_as(grid_tensor)
 
-def zscore_denormalize(norm_grid, stats):
+def minmax_denormalize(norm_grid, min_vals, max_vals):
     """
-    Denormalize a z-score normalized plenoxel grid
+    Denormalize a normalized plenoxel grid (inverse of minmax_normalize)
     
     Args:
-        norm_grid: normalized tensor with zero mean and unit variance
-        stats: dict with 'mean' and 'std' tensors
+        norm_grid: normalized tensor in [-1, 1] range
+        min_vals, max_vals: normalization parameters
     
     Returns:
         denormalized tensor in original scale
     """
-    # print("using z-score denormalization")
-    mean = stats["mean"].to(norm_grid.device)
-    std = stats["std"].to(norm_grid.device)
+    min_vals = min_vals.to(norm_grid.device)
+    max_vals = max_vals.to(norm_grid.device)
     
     g = norm_grid.view(-1, N_CH).clone()
-    g = g * (std + EPS) + mean
-    # For density channel, subtract offset to counteract training code offset
-    # g[:, 0] -= 25
+    scale = (max_vals - min_vals).clamp_min(EPS)
+    g = ((g + 1.0) * 0.5) * scale + min_vals
     
     return g.view_as(norm_grid)
 
@@ -314,15 +310,17 @@ def create_test_cameras(device="cuda"):
 class PlenoxelDataset(th.utils.data.Dataset):
     """
     Dataset for loading dense_grid.npz files from svox2 optimization
-    Applies z-score normalization as in jupyter code
+    Applies proper normalization as in opt.ipynb
     """
     
-    def __init__(self, data_dir, norm_stats_path, grid_size=32):
+    def __init__(self, data_dir, norm_stats_path, grid_size=32, random_flip=False, random_rotate=False):
         self.data_dir = Path(data_dir)
         self.grid_size = grid_size
+        self.random_flip = random_flip
+        self.random_rotate = random_rotate
         
-        # Load z-score normalization stats
-        self.stats = load_zscore_stats(norm_stats_path)
+        # Load normalization stats
+        self.min_vals, self.max_vals = load_norm_stats(norm_stats_path)
         
         # Find all dense_grid.npz files
         self.file_paths = sorted(list(self.data_dir.rglob("dense_grid.npz")))
@@ -349,9 +347,19 @@ class PlenoxelDataset(th.utils.data.Dataset):
         data = np.load(file_path)
         dense_grid = th.from_numpy(data["dense_grid"]).float()  # [D, H, W, C]
         
+        # Apply data augmentation
+        if self.random_flip and th.rand(1) > 0.5:
+            # Random flip along one axis
+            axis = th.randint(0, 3, (1,)).item()
+            dense_grid = th.flip(dense_grid, dims=[axis])
         
-        # Normalize using z-score standardization
-        normalized_grid = zscore_normalize(dense_grid, self.stats)
+        if self.random_rotate and th.rand(1) > 0.5:
+            # Random 90-degree rotation in XY plane
+            k = th.randint(1, 4, (1,)).item()
+            dense_grid = th.rot90(dense_grid, k=k, dims=[0, 1])
+        
+        # Normalize using opt.ipynb approach
+        normalized_grid = minmax_normalize(dense_grid, self.min_vals, self.max_vals)
         
         # Convert to [C, D, H, W] format for 3D convolution
         normalized_grid = normalized_grid.permute(3, 0, 1, 2)
@@ -373,6 +381,7 @@ def custom_collate_fn(batch):
     return batch_data, file_paths
 
 def load_plenoxel_data(data_dir, norm_stats_path, batch_size, grid_size=32, 
+                      random_flip=False, random_rotate=False, 
                       deterministic=False, num_workers=1):
     """
     Load plenoxel dataset with proper distributed sampling
@@ -381,6 +390,8 @@ def load_plenoxel_data(data_dir, norm_stats_path, batch_size, grid_size=32,
         data_dir=data_dir,
         norm_stats_path=norm_stats_path,
         grid_size=grid_size,
+        random_flip=random_flip,
+        random_rotate=random_rotate
     )
     
     if deterministic:
@@ -433,12 +444,12 @@ class PlenoxelWandbTrainLoop(TrainLoop):
     def __init__(self, *args, norm_stats_path=None, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Load z-score normalization stats
+        # Load normalization stats
         if norm_stats_path and os.path.exists(norm_stats_path):
-            self.stats = load_zscore_stats(norm_stats_path)
-            print(f"Loaded z-score normalization stats from: {norm_stats_path}")
+            self.min_vals, self.max_vals = load_norm_stats(norm_stats_path)
+            print(f"Loaded normalization stats from: {norm_stats_path}")
         else:
-            raise ValueError(f"Z-score normalization stats required: {norm_stats_path}")
+            raise ValueError(f"Normalization stats required: {norm_stats_path}")
         
         # Setup distributed info
         try:
@@ -572,7 +583,7 @@ class PlenoxelWandbTrainLoop(TrainLoop):
             
             if not is_noise:
                 # Denormalize for rendering
-                denorm_volume = zscore_denormalize(volume_dhwc, self.stats)
+                denorm_volume = minmax_denormalize(volume_dhwc, self.min_vals, self.max_vals)
                 print(f"Denormalized range: [{denorm_volume.min().item():.3f}, {denorm_volume.max().item():.3f}]")
             else:
                 # For noise, use raw volume (already in correct format for rendering)
@@ -748,7 +759,7 @@ def main():
         wandb.config.update({
             "data_type": "plenoxels_32x32x32",
             "channels": 4,
-            "normalization": "zscore_per_channel",
+            "normalization": "minmax_per_channel",
             "world_size": world_size,
             "effective_batch_size": args.batch_size * world_size,
         })
@@ -787,8 +798,8 @@ def main():
         norm_stats_path=args.norm_stats_path,
         batch_size=args.batch_size,
         grid_size=args.volume_size,
-        # random_flip=args.random_flip,
-        # random_rotate=args.random_rotate,
+        random_flip=args.random_flip,
+        random_rotate=args.random_rotate,
         deterministic=False,
         num_workers=args.num_workers
     )
@@ -899,7 +910,7 @@ def create_argparser():
         "--norm_stats_path",
         type=str,
         required=True,
-        help="Path to z-score normalization statistics (zscore_norm_stats.pt)"
+        help="Path to min-max normalization statistics (minmax_norm_stats.pt)"
     )
     
     parser.add_argument(
