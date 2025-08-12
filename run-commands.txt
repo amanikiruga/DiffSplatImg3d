@@ -164,6 +164,7 @@ OPENAI_LOGDIR=/om/user/akiruga/diffsplatimg3d/checkpoint/zscore-norm-linear-sche
     --use_scale_shift_norm True\
     --log_interval 200 \
     --test_generation_interval 200 \
+    --resume_checkpoint "/om/user/akiruga/diffsplatimg3d/checkpoint/zscore-norm-linear-schedule/model005000.pt" \
     --save_interval 1000 > nohup_out/voxel_gaussian_train_plenoxels_zscore_norm_linear_schedule.out 2>&1 &
 
 # train on zscore normalized data with cosine schedule
@@ -181,8 +182,24 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 OPENAI_LOGDIR=/om/user/akiruga/diffsplatimg3d/check
     --noise_schedule "cosine" \
     --log_interval 200 \
     --test_generation_interval 200 \
+    --resume_checkpoint "/om/user/akiruga/diffsplatimg3d/checkpoint/zscore-norm-cosine-schedule/model005000.pt" \
     --save_interval 1000 > nohup_out/voxel_gaussian_train_plenoxels_zscore_norm_cosine_schedule.out 2>&1 &
 
 
     # resume from checkpoint 
     --resume_checkpoint "/om/user/akiruga/diffsplatimg3d/checkpoints-plenoxels-diffusion/20250722_222854/model_log/model010000.pt"
+
+
+# train on binvox data
+
+python binvoxel_main_train.py \
+    --dataset_root /om/user/akiruga/datasets/ShapeNetVox32 \
+    --class_id 03001627 \
+    --voxel_size 32 \
+    --train_batch_size 8 \
+    --eval_batch_size 8 \
+    --num_epochs 50 \
+    --gradient_accumulation_steps 1 \
+
+
+nohup python binvoxel_main_train.py > nohup_out/binvoxel_main_train.out 2>&1 &

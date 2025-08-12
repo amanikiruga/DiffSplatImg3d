@@ -8,3 +8,5 @@ checkpoints/
 checkpoint/
 no_git/
 *.pt
+
+**/ddpm-vox-*
