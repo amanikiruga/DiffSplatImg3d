@@ -1,0 +1,2 @@
+nohup: ignoring input
+nohup: failed to run command 'CUDA_VISIBLE_DEVICES=4,5,6,7': No such file or directory

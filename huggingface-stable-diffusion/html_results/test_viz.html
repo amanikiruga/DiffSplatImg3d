@@ -1,0 +1,158 @@
+<!-- test_viz.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Unconditional 3D DDPM Samples</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --maxw: 1400px;
+            --gap: 14px;
+            --card-bg: #fff;
+            --muted: #666;
+            --ring: rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            margin: 0;
+            background: #f7f7f8;
+            color: #111;
+        }
+
+        header {
+            max-width: var(--maxw);
+            margin: 28px auto 10px;
+            padding: 0 16px;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .grid {
+            max-width: var(--maxw);
+            margin: 12px auto 40px;
+            padding: 0 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: var(--gap);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 14px;
+            box-shadow: 0 1px 2px var(--ring), 0 8px 30px var(--ring);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .thumb {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .row {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .btns a {
+            font-size: 12px;
+            text-decoration: none;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            color: #111;
+            background: #fafafa;
+        }
+
+        .btns a:hover {
+            background: #f0f0f0;
+        }
+
+        .notice {
+            max-width: var(--maxw);
+            margin: 12px auto;
+            padding: 0 16px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .hide {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Unconditional 3D DDPM Samples</h1>
+        <div class="meta" id="meta">Loading manifest…</div>
+    </header>
+
+    <div class="notice">
+        Place this HTML file in the same folder as <code>manifest.json</code>, alongside the <code>images/</code> (and
+        optional <code>binvox/</code>) folders.
+    </div>
+
+    <main class="grid" id="grid"></main>
+
+    <script>
+        async function loadManifest() {
+            const res = await fetch("manifest.json");
+            if (!res.ok) throw new Error("manifest.json not found");
+            return res.json();
+        }
+
+        function cardHTML(entry, idx) {
+            const hasBV = !!entry.binvox;
+            return `
+        <div class="card">
+          <img class="thumb" src="${entry.png}" alt="sample ${idx}">
+          <div class="row">
+            <div class="label">#${idx.toString().padStart(3, "0")}</div>
+            <div class="btns">
+              ${hasBV ? `<a href="${entry.binvox}" download>binvox</a>` : ""}
+              <a href="${entry.png}" download>png</a>
+            </div>
+          </div>
+        </div>
+      `;
+        }
+
+        (async () => {
+            try {
+                const m = await loadManifest();
+                const meta = document.getElementById("meta");
+                meta.textContent = `samples: ${m.num_samples} • voxel_size: ${m.voxel_size} • steps: ${m.num_inference_steps} • thr: ${m.threshold} • seed: ${m.seed}`;
+                const grid = document.getElementById("grid");
+                grid.innerHTML = (m.images || []).map((e, i) => cardHTML(e, i)).join("");
+            } catch (err) {
+                document.getElementById("meta").textContent = err.message || String(err);
+            }
+        })();
+    </script>
+</body>
+
+</html>

@@ -10,3 +10,5 @@ no_git/
 *.pt
 
 **/ddpm-vox-*
+
+huggingface-stable-diffusion/viz

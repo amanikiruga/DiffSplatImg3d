@@ -1,0 +1,63 @@
+nohup: ignoring input
+The following values were not passed to `accelerate launch` and had defaults used instead:
+		More than one GPU was found, enabling multi-GPU training.
+		If this was unintended please pass in `--num_processes=1`.
+	`--mixed_precision` was set to a value of `'no'`
+	`--dynamo_backend` was set to a value of `'no'`
+To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+/om/user/akiruga/sw/envs/RCDM/bin/python: can't open file '/weka/scratch/weka/tenenbaum/akiruga/diffsplatimg3d/binvoxel_main_train.py': [Errno 2] No such file or directory
+/om/user/akiruga/sw/envs/RCDM/bin/python: can't open file '/weka/scratch/weka/tenenbaum/akiruga/diffsplatimg3d/binvoxel_main_train.py': [Errno 2] No such file or directory
+/om/user/akiruga/sw/envs/RCDM/bin/python: can't open file '/weka/scratch/weka/tenenbaum/akiruga/diffsplatimg3d/binvoxel_main_train.py': [Errno 2] No such file or directory
+/om/user/akiruga/sw/envs/RCDM/bin/python: can't open file '/weka/scratch/weka/tenenbaum/akiruga/diffsplatimg3d/binvoxel_main_train.py': [Errno 2] No such file or directory
+E0813 14:57:40.234820 22702471599680 torch/distributed/elastic/multiprocessing/api.py:826] failed (exitcode: 2) local_rank: 0 (pid: 3766862) of binary: /om/user/akiruga/sw/envs/RCDM/bin/python
+Traceback (most recent call last):
+  File "/om/user/akiruga/sw/envs/RCDM/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/accelerate/commands/accelerate_cli.py", line 48, in main
+    args.func(args)
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/accelerate/commands/launch.py", line 1185, in launch_command
+    multi_gpu_launcher(args)
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/accelerate/commands/launch.py", line 810, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/distributed/run.py", line 870, in run
+    elastic_launch(
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 132, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/om/user/akiruga/sw/envs/RCDM/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 263, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+binvoxel_main_train.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2025-08-13_14:57:40
+  host      : apollo002.ib.cluster
+  rank      : 1 (local_rank: 1)
+  exitcode  : 2 (pid: 3766863)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[2]:
+  time      : 2025-08-13_14:57:40
+  host      : apollo002.ib.cluster
+  rank      : 2 (local_rank: 2)
+  exitcode  : 2 (pid: 3766864)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[3]:
+  time      : 2025-08-13_14:57:40
+  host      : apollo002.ib.cluster
+  rank      : 3 (local_rank: 3)
+  exitcode  : 2 (pid: 3766865)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2025-08-13_14:57:40
+  host      : apollo002.ib.cluster
+  rank      : 0 (local_rank: 0)
+  exitcode  : 2 (pid: 3766862)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

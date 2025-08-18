@@ -35,6 +35,7 @@ from huggingface_hub import create_repo, upload_folder
 from tqdm.auto import tqdm
 
 import binvox_rw
+import argparse
 
 
 # ===============================
@@ -50,7 +51,7 @@ class TrainingConfig:
     # Training
     train_batch_size: int = 8
     eval_batch_size: int = 8
-    num_epochs: int = 50
+    num_epochs: int = 50000
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 500
@@ -116,6 +117,8 @@ def vox_frame(vol_dhw: np.ndarray, thr: float = 0.0) -> np.ndarray:
     Solid voxel snapshot via matplotlib's ax.voxels (fast enough for 32^3).
     Returns uint8 RGB image array.
     """
+    # rot90
+    vol_dhw = np.rot90(vol_dhw, k=1, axes=(1, 2))
     occ = (vol_dhw > thr)
     fig = plt.figure(figsize=(3, 3), dpi=256 // 3)
     ax = fig.add_subplot(111, projection="3d")
@@ -327,8 +330,26 @@ def grad_global_norm(model: torch.nn.Module) -> float:
 
 
 def train() -> None:
+    # argparse 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume_dir", type=str, default="./ddpm-vox-03001627-32")
+    parser.add_argument("--train_batch_size", type=int, default=32)
+    args = parser.parse_args()
+    config.train_batch_size = args.train_batch_size
+    
+    # load checkpoint 
+    if os.path.exists(args.resume_dir):
+        model_dir = os.path.join(args.resume_dir, "unet")
+        sched_dir = os.path.join(args.resume_dir, "scheduler")
+        model = UNet3DConditionModel.from_pretrained(model_dir)
+        noise_scheduler = DDPMScheduler.from_pretrained(sched_dir)
+    else:
+        model = build_unet3d(voxel_size=config.voxel_size)
+        noise_scheduler = DDPMScheduler(num_train_timesteps=config.num_train_timesteps, prediction_type="epsilon")
+    
     set_seed(config.seed)
     ensure_dir(config.output_dir)
+    
 
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
@@ -360,8 +381,7 @@ def train() -> None:
         drop_last=True,
     )
 
-    model = build_unet3d(voxel_size=config.voxel_size)
-    noise_scheduler = DDPMScheduler(num_train_timesteps=config.num_train_timesteps, prediction_type="epsilon")
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,

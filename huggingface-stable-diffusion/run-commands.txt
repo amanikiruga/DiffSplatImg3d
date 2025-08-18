@@ -1,0 +1,21 @@
+# train binvoxel 
+
+python binvoxel_main_train.py
+
+## resume 
+python binvoxel_main_train.py --resume_dir ./ddpm-vox-03001627-32 --train_batch_size 32
+
+## multiple gpus 
+CUDA_VISIBLE_DEVICES=4,5,6,7 nohup accelerate launch --num_processes 4 --num_machines 1 \
+  binvoxel_main_train.py \
+  --resume_dir ./ddpm-vox-03001627-32 \
+  --train_batch_size 24 > nohup_out/binvoxel_train.log 2>&1 &
+  
+# visualize binvoxel inference 
+
+CUDA_VISIBLE_DEVICES=1 python html_results/binvoxel_infer.py --ckpt_dir ./ddpm-vox-03001627-32
+
+## run html test_viz.html 
+python3 -m http.server 8000 --directory /om/user/akiruga/diffsplatimg3d/huggingface-stable-diffusion/ddpm-vox-03001627-32/inference/20250812-133317
+
+
